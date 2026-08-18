@@ -1,0 +1,10 @@
+{
+	"id": "torbert-text-ai",
+	"name": "Torbert Text AI",
+	"version": "5.6.0",
+	"minAppVersion": "1.5.0",
+	"description": "Clean up Markdown, apply text transformations, and use OpenRouter for AI-assisted note editing.",
+	"author": "TutivSoft",
+	"authorUrl": "https://tutivsoft.com",
+	"isDesktopOnly": false
+}
