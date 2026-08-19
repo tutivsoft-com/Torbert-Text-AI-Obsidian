@@ -1,6 +1,7 @@
 import { PluginSettingTab, Setting } from "obsidian";
 import { transformations } from "./transformations";
 import type TorbertTextAiPlugin from "./main";
+import { openCheckout, syncPurchasedCharactersFromConstance } from "./billing";
 
 const TRANSFORMATION_CATEGORY_ORDER = [
   "AI",
@@ -9,6 +10,8 @@ const TRANSFORMATION_CATEGORY_ORDER = [
 ];
 
 export class TorbertTextAiSettingTab extends PluginSettingTab {
+  private creditsSummaryEl: HTMLElement | null = null;
+
   constructor(
     app: ConstructorParameters<typeof PluginSettingTab>[0],
     private readonly plugin: TorbertTextAiPlugin,
@@ -16,11 +19,64 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
     super(app, plugin);
   }
 
+  private renderCreditsSummary(): void {
+    if (!this.creditsSummaryEl) {
+      return;
+    }
+    const { freeCharacters, purchasedCharacters } = this.plugin.settings;
+    const totalChars = freeCharacters + purchasedCharacters;
+    this.creditsSummaryEl.setText(
+      `Characters remaining: ${totalChars.toLocaleString()} (${freeCharacters.toLocaleString()} free + ${purchasedCharacters.toLocaleString()} purchased)`,
+    );
+  }
+
   display(): void {
     const { containerEl } = this;
 
     containerEl.empty();
     containerEl.createEl("h2", { text: "Text Format Helper Settings" });
+
+    new Setting(containerEl).setName("Billing").setHeading();
+    containerEl.createEl("p", {
+      text: "Each AI call costs 1 credit per 1,000 characters. New installs start with 2,000 free characters; buy one-time character packs below when you run out.",
+    });
+    this.creditsSummaryEl = containerEl.createEl("p", { cls: "torbert-credits-summary" });
+    this.renderCreditsSummary();
+
+    new Setting(containerEl)
+      .setName("Billing email")
+      .setDesc("Used only for the TutivSoft checkout receipt.")
+      .addText((text) => text
+        .setPlaceholder("you@example.com")
+        .setValue(this.plugin.settings.billingEmail)
+        .onChange(async (value) => {
+          this.plugin.settings.billingEmail = value.trim();
+          await this.plugin.saveSettings();
+        }));
+    const buySetting = new Setting(containerEl)
+      .setName("Buy characters")
+      .setDesc("Opens secure checkout on app.tutivsoft.com for a one-time character pack. Credits apply to this device's balance after payment.");
+    buySetting.addButton((button) => button.setButtonText("Buy $1 (20,000 characters)").onClick(() => openCheckout(this.plugin, "usd_001")));
+    buySetting.addButton((button) => button.setButtonText("Buy $5 (160,000 characters)").setCta().onClick(() => openCheckout(this.plugin, "usd_005")));
+    buySetting.addButton((button) => button.setButtonText("Buy $15 (640,000 characters)").onClick(() => openCheckout(this.plugin, "usd_015")));
+
+    new Setting(containerEl)
+      .setName("Refresh balance")
+      .setDesc("Pull the latest purchased-character balance from Constance.")
+      .addButton((button) =>
+        button.setButtonText("Refresh balance").onClick(async () => {
+          button.setDisabled(true);
+          button.setButtonText("Refreshing...");
+          await syncPurchasedCharactersFromConstance(this.plugin);
+          this.renderCreditsSummary();
+          button.setDisabled(false);
+          button.setButtonText("Refresh balance");
+        }),
+      );
+
+    // Sync on open so the summary reflects a purchase made since last time
+    // Obsidian was open, without requiring a manual refresh click.
+    void syncPurchasedCharactersFromConstance(this.plugin).then(() => this.renderCreditsSummary());
 
     new Setting(containerEl).setName("UI Settings").setHeading();
 

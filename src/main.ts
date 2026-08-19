@@ -2,6 +2,7 @@ import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu
 import { classifyFolderFromContent, collectAiUsageDuring, generateFileNameFromContent, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
 import { isWeakTitle, noteSimilarity, parseFolderList, suggestTitleFromContent } from "./feature-utils";
 import { FileLogger } from "./logger";
+import { spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
 import { DEFAULT_SETTINGS } from "./settings";
 import { TorbertTextAiSettingTab } from "./settings-tab";
 import { transformations } from "./transformations";
@@ -72,8 +73,17 @@ export default class TorbertTextAiPlugin extends Plugin {
 
       this.logger = new FileLogger(this.app.vault.adapter, logFilePath);
       await this.loadSettings();
+      if (!this.settings.constanceDeviceId) {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        this.settings.constanceDeviceId = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+        await this.saveSettings();
+      }
       this.logger.setEnabled(this.settings.enableLogging);
       this.logger.info("Plugin.onload", "Plugin is loading.");
+
+      // Background balance sync; never blocks load, fails silently offline.
+      void syncPurchasedCharactersFromConstance(this);
 
       if (this.settings.showRibbonIcon) {
         this.addRibbonIcon("wand", "Replace bold with highlight", () => this.applyTransformationToEditor(null, "boldToHighlight"));
@@ -321,6 +331,52 @@ export default class TorbertTextAiPlugin extends Plugin {
     }
   }
 
+  /**
+   * Charges the character credits for a single AI call (App_Credit_Unit_Name
+   * is "characters" -- ceil(chars/1000) credits per call). Spends the local
+   * free pool first, then the Constance-backed purchased pool. Returns false
+   * (and shows a Notice) only when both are confirmed exhausted; a
+   * network/error response fails open, matching Culebra's policy.
+   */
+  async chargeCharacters(charCount: number): Promise<boolean> {
+    const cost = Math.max(1, Math.ceil(charCount / 1000));
+    if (this.settings.freeCharacters >= cost) {
+      this.settings.freeCharacters -= cost;
+      await this.saveSettings();
+      return true;
+    }
+
+    const result = await spendConstanceCredits(this.settings.constanceDeviceId, cost);
+    if (result.kind === "ok") {
+      this.settings.purchasedCharacters = result.balance;
+      await this.saveSettings();
+      return true;
+    }
+    if (result.kind === "insufficient") {
+      this.settings.purchasedCharacters = 0;
+      await this.saveSettings();
+      new Notice("Torbert: out of characters. Buy more in plugin settings (Buy $1 / $5 / $15 packs).");
+      return false;
+    }
+
+    // Network error or unexpected non-insufficient status: fail open, proceed
+    // with the AI call, and let the next sync reconcile the local
+    // purchasedCharacters mirror against Constance's real balance.
+    this.logger.warn("chargeCharacters", "Credit spend check failed; proceeding and will reconcile on next sync.");
+    return true;
+  }
+
+  pollAfterCheckout(): void {
+    let attempts = 0;
+    const intervalId = window.setInterval(() => {
+      attempts += 1;
+      void syncPurchasedCharactersFromConstance(this);
+      if (attempts >= 6) {
+        window.clearInterval(intervalId);
+      }
+    }, 15000);
+  }
+
   async applyTransformationToEditor(editor: Editor | null, transformationId: TransformationId): Promise<void> {
     let processingNotice: ProcessingNotice | null = null;
     try {
@@ -345,6 +401,9 @@ export default class TorbertTextAiPlugin extends Plugin {
       // Preserve the original plugin behavior: selected text wins; otherwise
       // transform the full active editor contents.
       const textToTransform = selection || targetEditor.getValue();
+      if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) {
+        return;
+      }
       processingNotice = this.startProcessingNotice(`Processing ${transformation.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(textToTransform, { settings: this.settings, abortSignal })));
@@ -383,6 +442,9 @@ export default class TorbertTextAiPlugin extends Plugin {
       }
 
       const fileContents = await this.app.vault.read(file);
+      if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) {
+        return;
+      }
       processingNotice = this.startProcessingNotice(`Processing ${file.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(fileContents, { settings: this.settings, abortSignal })));
@@ -435,6 +497,11 @@ export default class TorbertTextAiPlugin extends Plugin {
           }
 
           const fileContents = await this.app.vault.read(file);
+          if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) {
+            this.logger.info("applyTransformationToFolder", "Out of characters; stopped the batch.");
+            break;
+          }
+
           const abortSignal = processingNotice.abortSignal;
           const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(fileContents, { settings: this.settings, abortSignal })));
           const { newText } = transformationResult;
@@ -538,6 +605,9 @@ export default class TorbertTextAiPlugin extends Plugin {
     const processingNotice = this.startProcessingNotice(`Processing AI rename for ${file.name}`);
     try {
       const fileContents = await this.app.vault.read(file);
+      if (!(await this.chargeCharacters(fileContents.length))) {
+        return;
+      }
       const { result: newBaseName, usage } = await collectAiUsageDuring(() => generateFileNameFromContent(this.settings, file.basename, fileContents, processingNotice.abortSignal));
       this.showAiUsage(`AI Rename from Content on ${file.name}`, usage);
       const newPath = await this.getAvailableSiblingPath(file, `${newBaseName}.md`);
@@ -586,6 +656,10 @@ export default class TorbertTextAiPlugin extends Plugin {
         try {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
+          if (!(await this.chargeCharacters(fileContents.length))) {
+            this.logger.info("renameFilesInFolderFromContents", "Out of characters; stopped the batch.");
+            break;
+          }
           const { result: newBaseName, usage } = await collectAiUsageDuring(() => generateFileNameFromContent(this.settings, file.basename, fileContents, processingNotice.abortSignal));
           this.showAiUsage(`AI Rename from Content on ${file.name}`, usage);
           const newPath = await this.getAvailableSiblingPath(file, `${newBaseName}.md`, reservedPaths);
@@ -685,6 +759,10 @@ export default class TorbertTextAiPlugin extends Plugin {
         try {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
+          if (!(await this.chargeCharacters(fileContents.length))) {
+            this.logger.info("classifyFiles", "Out of characters; stopped the batch.");
+            break;
+          }
           const { result: rawFolderName, usage } = await collectAiUsageDuring(() => classifyFolderFromContent(this.settings, folderChoices, fileContents, processingNotice.abortSignal));
           const folderName = sanitizeFolderName(rawFolderName);
           this.showAiUsage(`AI Classify Folder on ${file.name}`, usage);
@@ -848,6 +926,9 @@ export default class TorbertTextAiPlugin extends Plugin {
     const processingNotice = this.startProcessingNotice(`Processing prompt for ${file.name}`);
     try {
       const fileContents = await this.app.vault.read(file);
+      if (!(await this.chargeCharacters(fileContents.length))) {
+        return;
+      }
       const { result: newText, usage } = await collectAiUsageDuring(() => rewriteWithOpenAi(this.settings, preset.prompt, fileContents, processingNotice.abortSignal));
 
       if (newText !== fileContents) {
@@ -880,6 +961,10 @@ export default class TorbertTextAiPlugin extends Plugin {
         try {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
+          if (!(await this.chargeCharacters(fileContents.length))) {
+            this.logger.info("applyCustomPromptToFolder", "Out of characters; stopped the batch.");
+            break;
+          }
           const abortSignal = processingNotice.abortSignal;
           const { result: newText, usage } = await collectAiUsageDuring(() => rewriteWithOpenAi(this.settings, preset.prompt, fileContents, abortSignal));
           this.showAiUsage(`Prompt ${preset.name} on ${file.name}`, usage);
@@ -1154,6 +1239,10 @@ export default class TorbertTextAiPlugin extends Plugin {
     this.settings.folderClassificationFolders = this.settings.folderClassificationFolders || DEFAULT_SETTINGS.folderClassificationFolders;
     this.settings.largeContentOpenAiModel = this.settings.largeContentOpenAiModel || DEFAULT_SETTINGS.largeContentOpenAiModel;
     this.settings.openAiApiBase = this.settings.openAiApiBase || DEFAULT_SETTINGS.openAiApiBase;
+    this.settings.constanceDeviceId = this.settings.constanceDeviceId || "";
+    this.settings.billingEmail = this.settings.billingEmail || "";
+    this.settings.freeCharacters = typeof this.settings.freeCharacters === "number" ? this.settings.freeCharacters : DEFAULT_SETTINGS.freeCharacters;
+    this.settings.purchasedCharacters = typeof this.settings.purchasedCharacters === "number" ? this.settings.purchasedCharacters : DEFAULT_SETTINGS.purchasedCharacters;
 
   }
 

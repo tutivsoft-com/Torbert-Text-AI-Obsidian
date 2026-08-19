@@ -29,6 +29,10 @@ export interface PluginSettings {
   customPromptPresets: CustomPromptPreset[];
   operationHistory: OperationHistoryEntry[];
   enabledTransformations: Record<TransformationId, boolean>;
+  constanceDeviceId: string;
+  billingEmail: string;
+  freeCharacters: number;
+  purchasedCharacters: number;
 }
 
 export interface TransformationContext {

@@ -37,4 +37,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     }),
     {} as PluginSettings["enabledTransformations"],
   ),
+  constanceDeviceId: "",
+  billingEmail: "",
+  freeCharacters: 2000,
+  purchasedCharacters: 0,
 };
