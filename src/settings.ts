@@ -41,4 +41,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   billingEmail: "",
   freeCharacters: 2000,
   purchasedCharacters: 0,
+  pendingSpendEvents: [],
 };

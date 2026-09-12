@@ -33,6 +33,7 @@ export interface PluginSettings {
   billingEmail: string;
   freeCharacters: number;
   purchasedCharacters: number;
+  pendingSpendEvents: Array<{ eventId: string; amount: number }>;
 }
 
 export interface TransformationContext {

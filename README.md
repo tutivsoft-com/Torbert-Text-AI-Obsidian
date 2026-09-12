@@ -2,7 +2,7 @@
 
 Apply Markdown cleanup and text transformations in Obsidian, including AI-assisted correction, summaries, tags, filenames, frontmatter, folder classification, and reading highlights.
 
-Version: `5.8.2` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
+Version: `5.8.3` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
 
 Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian). This checkout is the private/source mirror.
 

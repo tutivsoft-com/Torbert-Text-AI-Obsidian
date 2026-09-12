@@ -45,7 +45,7 @@ export function openCheckout(plugin: TorbertTextAiPlugin, tier: TorbertPackKey):
   plugin.pollAfterCheckout();
 }
 
-function generateEventId(): string {
+export function generateEventId(): string {
   const bytes = new Uint8Array(12);
   window.crypto.getRandomValues(bytes);
   return "evt_" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -74,7 +74,7 @@ export type SpendResult =
   | { kind: "insufficient" }
   | { kind: "error" };
 
-export async function spendConstanceCredits(deviceId: string, amount: number): Promise<SpendResult> {
+export async function spendConstanceCredits(deviceId: string, amount: number, stableEventId = generateEventId()): Promise<SpendResult> {
   try {
     const response = await requestUrl({
       url: `${BASE_URL}/api/v1/public/browser/credits/spend`,
@@ -85,7 +85,7 @@ export async function spendConstanceCredits(deviceId: string, amount: number): P
         external_customer_id: deviceId,
         machine_id: deviceId,
         amount,
-        event_id: generateEventId(),
+        event_id: stableEventId,
       }),
       throw: false,
     });
@@ -108,6 +108,16 @@ export async function spendConstanceCredits(deviceId: string, amount: number): P
   } catch (error) {
     console.error("Torbert: Constance credit spend call failed", error);
     return { kind: "error" };
+  }
+}
+
+export async function retryPendingSpendEvents(plugin: TorbertTextAiPlugin): Promise<void> {
+  for (const pending of [...(plugin.settings.pendingSpendEvents ?? [])]) {
+    const result = await spendConstanceCredits(plugin.settings.constanceDeviceId, pending.amount, pending.eventId);
+    if (result.kind === "error") break;
+    plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter((item) => item.eventId !== pending.eventId);
+    plugin.settings.purchasedCharacters = result.kind === "ok" ? result.balance : 0;
+    await plugin.saveSettings();
   }
 }
 

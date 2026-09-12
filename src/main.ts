@@ -2,7 +2,7 @@ import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu
 import { classifyFolderFromContent, collectAiUsageDuring, generateFileNameFromContent, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
 import { isWeakTitle, noteSimilarity, parseFolderList, suggestTitleFromContent } from "./feature-utils";
 import { FileLogger } from "./logger";
-import { spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
+import { generateEventId, retryPendingSpendEvents, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
 import { DEFAULT_SETTINGS } from "./settings";
 import { TorbertTextAiSettingTab } from "./settings-tab";
 import { transformations } from "./transformations";
@@ -123,11 +123,13 @@ export default class TorbertTextAiPlugin extends Plugin {
         this.settings.constanceDeviceId = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
         await this.saveSettings();
       }
+      this.settings.pendingSpendEvents = Array.isArray(this.settings.pendingSpendEvents) ? this.settings.pendingSpendEvents.filter((item) => item && typeof item.eventId === "string" && Number.isInteger(item.amount) && item.amount > 0) : [];
+      await this.saveSettings();
       this.logger.setEnabled(this.settings.enableLogging);
       this.logger.info("Plugin.onload", "Plugin is loading.");
 
       // Background balance sync; never blocks load, fails silently offline.
-      void syncPurchasedCharactersFromConstance(this);
+      void syncPurchasedCharactersFromConstance(this).then(() => retryPendingSpendEvents(this));
 
       if (this.settings.showRibbonIcon) {
         this.addRibbonIcon("wand", "Replace bold with highlight", () => this.applyTransformationToEditor(null, "boldToHighlight"));
@@ -486,14 +488,24 @@ export default class TorbertTextAiPlugin extends Plugin {
       return true;
     }
 
-    const result = await spendConstanceCredits(this.settings.constanceDeviceId, cost);
+    await retryPendingSpendEvents(this);
+    if (this.settings.pendingSpendEvents.length > 0) {
+      new Notice("Torbert: a previous credit spend is still being reconciled. Please retry when the connection is restored.");
+      return false;
+    }
+    const stableEventId = generateEventId();
+    this.settings.pendingSpendEvents.push({ eventId: stableEventId, amount: cost });
+    await this.saveSettings();
+    const result = await spendConstanceCredits(this.settings.constanceDeviceId, cost, stableEventId);
     if (result.kind === "ok") {
       this.settings.purchasedCharacters = result.balance;
+      this.settings.pendingSpendEvents = this.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
       await this.saveSettings();
       return true;
     }
     if (result.kind === "insufficient") {
       this.settings.purchasedCharacters = 0;
+      this.settings.pendingSpendEvents = this.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
       await this.saveSettings();
       new Notice("Torbert: out of characters. Buy more in plugin settings (Buy $1 / $5 / $15 packs).");
       return false;
