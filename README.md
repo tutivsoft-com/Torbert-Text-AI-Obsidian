@@ -2,7 +2,7 @@
 
 Apply Markdown cleanup and text transformations in Obsidian, including AI-assisted correction, summaries, tags, filenames, frontmatter, folder classification, and reading highlights.
 
-Version: `5.8.5` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
+Version: `5.8.10` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
 
 Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian). This checkout is the private/source mirror.
 
@@ -37,19 +37,18 @@ AI transformations require network access to the provider selected in settings:
 ## Billing
 
 Torbert Text AI uses Constance (TutivSoft central billing) for one-time
-character packs — no subscriptions. Packs are $1 (20,000 characters), $5
-(160,000 characters), and $15 (640,000 characters), provisioned live in the
-Constance catalog (`App_Active=Yes`, `App_Environment=live`). Buy buttons in
-the settings tab open a real Constance `/buy` checkout.
+character packs — no subscriptions. The current source uses app ID
+`torbert-text-ai-obsidian`, account authentication, a stable linked
+installation ID, server-authoritative free usage, and authenticated paid
+spend. See `CONSTANCE_BILLING_CONTRACT_2026-09-20.md` for the exact contract.
 
-Spend is character-based: each AI call costs `ceil(chars/1000)` credits. New
-installs get a local-only grant of 2,000 free characters; once that pool is
-spent, calls draw from the Constance-backed purchased balance via the unsigned
-same-install browser endpoints (`/api/v1/public/browser/entitlements` for
-balance reads, `/api/v1/public/browser/credits/spend` for spends; the
-`torbert-text-ai` catalog row has `App_Allow_Unsigned_Browser_Credit_Spend=Yes`).
-Network errors fail open; a confirmed insufficient balance (HTTP 402/404)
-blocks the call with a notice.
+Each AI call costs `ceil(chars/1000)` credits. The plugin claims account free
+usage through `/api/v1/billing/free-usage/claim`, spends purchased characters
+through `/api/v1/billing/credits/spend`, and persists pending events so a lost
+response is retried with the same event ID. Checkout uses a server-resolved
+pack code and polls `/api/v1/billing/checkouts/{checkout_id}` after webhook
+settlement. Do not document the old unsigned same-install spend route as the
+current source behavior.
 
 ## Development
 
@@ -75,15 +74,15 @@ esbuild. Release assets are `main.js`, `manifest.json`, and `styles.css`.
 GitHub release assets are attested by the repository workflow so their
 provenance can be verified independently.
 
-## Public Release Repository
+## Public Repository Workflow
 
-The TutivSoft repository is the final branded release repository. It is not the
-development checkout, but it intentionally includes the complete reviewable
-`src/` source tree because Obsidian Community checks the tagged public commit.
-The public root needs `README.md`, `LICENSE`, `manifest.json`, the complete
-`src/` source tree, `main.js`, `styles.css`, and the attestation workflow.
-
+This checkout is the private/source repository. Copy the contents of
+[`publish/`](./publish/) into the root of the separate public GitHub repository.
 Never copy API keys, credentials, `plugin.log`, `node_modules`, or private
-project metadata. For each release, upload only `main.js`, `manifest.json`, and
-`styles.css` as release assets. The release tag must exactly match the
-`version` in `manifest.json`.
+project metadata.
+
+The public root needs `README.md`, `LICENSE`, `manifest.json`, the complete
+`src/` source tree, `main.js`, `styles.css`, and
+`.github/workflows/release-attestations.yml`. For each release, upload only
+`main.js`, `manifest.json`, and `styles.css` as release assets. The release tag
+must exactly match the `version` in `manifest.json`.

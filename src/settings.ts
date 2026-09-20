@@ -41,7 +41,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   billingEmail: "",
   billingAccessToken: "",
   billingAccountLinked: false,
-  freeCharacters: 2000,
+  freeCharacters: 0,
   purchasedCharacters: 0,
   pendingSpendEvents: [],
 };

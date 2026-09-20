@@ -482,8 +482,8 @@ export default class TorbertTextAiPlugin extends Plugin {
    * Charges the character credits for a single AI call (App_Credit_Unit_Name
    * is "characters" -- ceil(chars/1000) credits per call). Spends the local
    * free pool first, then the Constance-backed purchased pool. Returns false
-   * (and shows a Notice) only when both are confirmed exhausted; a
-   * network/error response fails open, matching Culebra's policy.
+   * (and shows a Notice) when authentication, balance, or spend verification
+   * is unavailable. AI work never proceeds without an authoritative charge.
    */
   async chargeCharacters(charCount: number): Promise<boolean> {
     const cost = Math.max(1, Math.ceil(charCount));
@@ -1513,7 +1513,8 @@ export default class TorbertTextAiPlugin extends Plugin {
     this.settings.billingEmail = this.settings.billingEmail || "";
     this.settings.billingAccessToken = typeof this.settings.billingAccessToken === "string" ? this.settings.billingAccessToken : "";
     this.settings.billingAccountLinked = this.settings.billingAccountLinked === true && Boolean(this.settings.billingAccessToken);
-    this.settings.freeCharacters = typeof this.settings.freeCharacters === "number" ? this.settings.freeCharacters : DEFAULT_SETTINGS.freeCharacters;
+    // Free usage is account-scoped; discard any legacy local starter pool.
+    this.settings.freeCharacters = 0;
     this.settings.purchasedCharacters = typeof this.settings.purchasedCharacters === "number" ? this.settings.purchasedCharacters : DEFAULT_SETTINGS.purchasedCharacters;
 
   }
