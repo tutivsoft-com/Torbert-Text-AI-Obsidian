@@ -9,12 +9,8 @@ const BASE_URL = "https://app.tutivsoft.com";
 // checkout for this plugin. See CONSTANCE_BILLING_ROLLOUT.md, 2026-08-20.
 const APP_ID = "torbert-text-ai-obsidian";
 
-// One-time credit packs only (no subscriptions, no license keys). Uses the
-// unsigned public browser-relay endpoints, the same model Culebra uses:
-// checkout via GET /buy, balance reads via POST /public/browser/entitlements,
-// balance spend via POST /public/browser/credits/spend. The identity is this
-// install's own constanceDeviceId, reused as both external_customer_id and
-// machine_id (the "unsigned same-install lookup" those endpoints require).
+// One-time credit packs only (no subscriptions, no license keys). Balance
+// reads and spends require the authenticated Constance account session.
 export type TorbertPackKey = "usd_001" | "usd_005" | "usd_015";
 
 export const TORBERT_PRICE_IDS: Record<TorbertPackKey, string> = {
