@@ -2,6 +2,7 @@ import { PluginSettingTab, Setting } from "obsidian";
 import { transformations } from "./transformations";
 import type TorbertTextAiPlugin from "./main";
 import { openCheckout, syncPurchasedCharactersFromConstance } from "./billing";
+import { addBillingAccountSettings } from "./constance-account";
 
 const TRANSFORMATION_CATEGORY_ORDER = [
   "AI",
@@ -44,21 +45,12 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("Billing").setHeading();
     containerEl.createEl("p", {
-      text: "Each AI call costs 1 credit per 1,000 characters. New installs start with 2,000 free characters; buy one-time character packs below when you run out.",
+      text: "AI usage is metered by input characters. Each billing account gets a one-time 2,000-character starter allowance across linked installations; buy one-time character packs below when you run out.",
     });
     this.creditsSummaryEl = containerEl.createEl("p", { cls: "torbert-credits-summary" });
     this.renderCreditsSummary();
 
-    new Setting(containerEl)
-      .setName("Billing email")
-      .setDesc("Used only for the TutivSoft checkout receipt.")
-      .addText((text) => text
-        .setPlaceholder("you@example.com")
-        .setValue(this.plugin.settings.billingEmail)
-        .onChange(async (value) => {
-          this.plugin.settings.billingEmail = value.trim();
-          await this.plugin.saveSettings();
-        }));
+    addBillingAccountSettings(containerEl, { state: this.plugin.settings, appId: "torbert-text-ai-obsidian", installationId: this.plugin.settings.constanceDeviceId, appVersion: this.plugin.manifest.version, persist: () => this.plugin.saveSettings(), syncBalance: () => syncPurchasedCharactersFromConstance(this.plugin), refresh: () => this.display() });
     const buySetting = new Setting(containerEl)
       .setName("Buy characters")
       .setDesc("Opens secure checkout on app.tutivsoft.com for a one-time character pack. Credits apply to this device's balance after payment.");

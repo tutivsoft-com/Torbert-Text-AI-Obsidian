@@ -3,10 +3,12 @@ import { classifyFolderFromContent, collectAiUsageDuring, generateFileNameFromCo
 import { isWeakTitle, noteSimilarity, parseFolderList, suggestTitleFromContent } from "./feature-utils";
 import { FileLogger } from "./logger";
 import { generateEventId, retryPendingSpendEvents, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
+import { claimAccountFreeUsage } from "./constance-account";
 import { DEFAULT_SETTINGS } from "./settings";
 import { TorbertTextAiSettingTab } from "./settings-tab";
 import { transformations } from "./transformations";
 import type { CustomPromptPreset, OperationHistoryEntry, OperationHistorySnapshot, PluginSettings, TransformationId } from "./types";
+import { PluginSupport } from "./plugin-support";
 
 interface BatchReportItem {
   path: string;
@@ -108,10 +110,13 @@ class BatchPreviewModal extends Modal {
 }
 
 export default class TorbertTextAiPlugin extends Plugin {
+  support!: PluginSupport;
   settings!: PluginSettings;
   private logger!: FileLogger;
 
   async onload(): Promise<void> {
+    this.support = new PluginSupport(this, { name: "Torbert Text AI", summary: "Transform, summarize, organize, and clean Markdown text.", quickStart: ["Sign in to billing in Settings.", "Select text or open a note.", "Choose a Torbert transformation and review the result."], commands: ["Open transformations", "Undo last operation", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Confirm the current note is Markdown and editable."] });
+    this.support.start();
     try {
       const logFilePath = `${this.manifest.dir || "."}/plugin.log`;
 
@@ -481,12 +486,19 @@ export default class TorbertTextAiPlugin extends Plugin {
    * network/error response fails open, matching Culebra's policy.
    */
   async chargeCharacters(charCount: number): Promise<boolean> {
-    const cost = Math.max(1, Math.ceil(charCount / 1000));
-    if (this.settings.freeCharacters >= cost) {
-      this.settings.freeCharacters -= cost;
+    const cost = Math.max(1, Math.ceil(charCount));
+    if (!this.settings.billingAccessToken || !this.settings.billingAccountLinked) {
+      new Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
+      return false;
+    }
+    const free = await claimAccountFreeUsage(this.settings, "torbert-text-ai-obsidian", this.settings.constanceDeviceId, `free_${generateEventId()}`, cost);
+    if (free.kind === "ok") {
+      this.settings.freeCharacters = free.remaining;
       await this.saveSettings();
       return true;
     }
+    if (free.kind === "auth-required") { this.settings.billingAccessToken = ""; this.settings.billingAccountLinked = false; await this.saveSettings(); new Notice("Torbert: your billing session expired. Sign in again."); return false; }
+    if (free.kind === "error") { new Notice("Torbert: the account allowance could not be verified. No AI request was sent."); return false; }
 
     await retryPendingSpendEvents(this);
     if (this.settings.pendingSpendEvents.length > 0) {
@@ -496,7 +508,7 @@ export default class TorbertTextAiPlugin extends Plugin {
     const stableEventId = generateEventId();
     this.settings.pendingSpendEvents.push({ eventId: stableEventId, amount: cost });
     await this.saveSettings();
-    const result = await spendConstanceCredits(this.settings.constanceDeviceId, cost, stableEventId);
+    const result = await spendConstanceCredits(this, cost, stableEventId);
     if (result.kind === "ok") {
       this.settings.purchasedCharacters = result.balance;
       this.settings.pendingSpendEvents = this.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
@@ -511,11 +523,9 @@ export default class TorbertTextAiPlugin extends Plugin {
       return false;
     }
 
-    // Network error or unexpected non-insufficient status: fail open, proceed
-    // with the AI call, and let the next sync reconcile the local
-    // purchasedCharacters mirror against Constance's real balance.
-    this.logger.warn("chargeCharacters", "Credit spend check failed; proceeding and will reconcile on next sync.");
-    return true;
+    this.logger.warn("chargeCharacters", "Credit spend status is unknown; blocking the AI call until the stable event is reconciled.");
+    new Notice("Torbert: billing could not be verified. Retry after the connection is restored.");
+    return false;
   }
 
   pollAfterCheckout(): void {
@@ -1501,6 +1511,8 @@ export default class TorbertTextAiPlugin extends Plugin {
     this.settings.openAiApiBase = this.settings.openAiApiBase || DEFAULT_SETTINGS.openAiApiBase;
     this.settings.constanceDeviceId = this.settings.constanceDeviceId || "";
     this.settings.billingEmail = this.settings.billingEmail || "";
+    this.settings.billingAccessToken = typeof this.settings.billingAccessToken === "string" ? this.settings.billingAccessToken : "";
+    this.settings.billingAccountLinked = this.settings.billingAccountLinked === true && Boolean(this.settings.billingAccessToken);
     this.settings.freeCharacters = typeof this.settings.freeCharacters === "number" ? this.settings.freeCharacters : DEFAULT_SETTINGS.freeCharacters;
     this.settings.purchasedCharacters = typeof this.settings.purchasedCharacters === "number" ? this.settings.purchasedCharacters : DEFAULT_SETTINGS.purchasedCharacters;
 

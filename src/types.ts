@@ -31,6 +31,8 @@ export interface PluginSettings {
   enabledTransformations: Record<TransformationId, boolean>;
   constanceDeviceId: string;
   billingEmail: string;
+  billingAccessToken: string;
+  billingAccountLinked: boolean;
   freeCharacters: number;
   purchasedCharacters: number;
   pendingSpendEvents: Array<{ eventId: string; amount: number }>;

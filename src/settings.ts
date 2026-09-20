@@ -39,6 +39,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   ),
   constanceDeviceId: "",
   billingEmail: "",
+  billingAccessToken: "",
+  billingAccountLinked: false,
   freeCharacters: 2000,
   purchasedCharacters: 0,
   pendingSpendEvents: [],

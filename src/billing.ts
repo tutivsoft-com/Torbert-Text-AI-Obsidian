@@ -1,5 +1,6 @@
 import { Notice, requestUrl } from "obsidian";
 import type TorbertTextAiPlugin from "./main";
+import { spendAccountCredits } from "./constance-account";
 
 const BASE_URL = "https://app.tutivsoft.com";
 // Distinct from the "torbert-text-ai" app_id used by the separate
@@ -23,6 +24,7 @@ export const TORBERT_PRICE_IDS: Record<TorbertPackKey, string> = {
 };
 
 export function openCheckout(plugin: TorbertTextAiPlugin, tier: TorbertPackKey): void {
+  if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) { new Notice("Sign in or create a billing account in Torbert settings before buying characters."); return; }
   const email = plugin.settings.billingEmail.trim();
   if (!email || !email.includes("@")) {
     new Notice("Enter a valid billing email in Torbert settings first.");
@@ -51,16 +53,11 @@ export function generateEventId(): string {
   return "evt_" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function fetchConstanceEntitlements(deviceId: string): Promise<any> {
+async function fetchConstanceEntitlements(plugin: TorbertTextAiPlugin): Promise<any> {
   const response = await requestUrl({
-    url: `${BASE_URL}/api/v1/public/browser/entitlements`,
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      app_id: APP_ID,
-      external_customer_id: deviceId,
-      machine_id: deviceId,
-    }),
+    url: `${BASE_URL}/api/v1/billing/entitlements/me?${new URLSearchParams({ app_id: APP_ID, installation_id: plugin.settings.constanceDeviceId }).toString()}`,
+    method: "GET",
+    headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` },
     throw: false,
   });
   if (response.status < 200 || response.status >= 300) {
@@ -74,46 +71,15 @@ export type SpendResult =
   | { kind: "insufficient" }
   | { kind: "error" };
 
-export async function spendConstanceCredits(deviceId: string, amount: number, stableEventId = generateEventId()): Promise<SpendResult> {
-  try {
-    const response = await requestUrl({
-      url: `${BASE_URL}/api/v1/public/browser/credits/spend`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        app_id: APP_ID,
-        external_customer_id: deviceId,
-        machine_id: deviceId,
-        amount,
-        event_id: stableEventId,
-      }),
-      throw: false,
-    });
-
-    // 402 = confirmed insufficient balance. 404 = no Constance customer
-    // exists yet for this device (i.e. never purchased) -- also a
-    // confirmed "0 purchased characters" state, not a transient failure, so
-    // it must block rather than fail open (otherwise a user who never
-    // buys anything would get unlimited usage forever once their free
-    // pool ran out).
-    if (response.status === 402 || response.status === 404) {
-      return { kind: "insufficient" };
-    }
-    if (response.status < 200 || response.status >= 300) {
-      return { kind: "error" };
-    }
-
-    const balance = response.json?.data?.credits?.balance;
-    return { kind: "ok", balance: Math.max(0, Number(balance) || 0) };
-  } catch (error) {
-    console.error("Torbert: Constance credit spend call failed", error);
-    return { kind: "error" };
-  }
+export async function spendConstanceCredits(plugin: TorbertTextAiPlugin, amount: number, stableEventId = generateEventId()): Promise<SpendResult> {
+  const result = await spendAccountCredits(plugin.settings, APP_ID, plugin.settings.constanceDeviceId, stableEventId, amount);
+  if (result.kind === "auth-required") { plugin.settings.billingAccessToken = ""; plugin.settings.billingAccountLinked = false; await plugin.saveSettings(); return { kind: "error" }; }
+  return result.kind === "ok" || result.kind === "insufficient" || result.kind === "error" ? result : { kind: "error" };
 }
 
 export async function retryPendingSpendEvents(plugin: TorbertTextAiPlugin): Promise<void> {
   for (const pending of [...(plugin.settings.pendingSpendEvents ?? [])]) {
-    const result = await spendConstanceCredits(plugin.settings.constanceDeviceId, pending.amount, pending.eventId);
+    const result = await spendConstanceCredits(plugin, pending.amount, pending.eventId);
     if (result.kind === "error") break;
     plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter((item) => item.eventId !== pending.eventId);
     plugin.settings.purchasedCharacters = result.kind === "ok" ? result.balance : 0;
@@ -126,7 +92,8 @@ export async function syncPurchasedCharactersFromConstance(plugin: TorbertTextAi
     return;
   }
   try {
-    const entitlement = await fetchConstanceEntitlements(plugin.settings.constanceDeviceId);
+    if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) return;
+    const entitlement = await fetchConstanceEntitlements(plugin);
     const serverBalance = entitlement?.credits?.balance;
     plugin.settings.purchasedCharacters = Math.max(0, Number(serverBalance) || 0);
     await plugin.saveSettings();
