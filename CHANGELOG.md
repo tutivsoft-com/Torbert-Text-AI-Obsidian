@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.8.11 - 2026-09-21
+
+- Incremented release metadata without rebuilding the plugin.
+
 ## 5.8.5 - 2026-09-20
 
 - Prepared the next patch version across source, publish, and public metadata.
