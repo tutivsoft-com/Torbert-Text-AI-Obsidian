@@ -2,7 +2,7 @@ import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu
 import { classifyFolderFromContent, collectAiUsageDuring, generateFileNameFromContent, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
 import { isWeakTitle, noteSimilarity, parseFolderList, suggestTitleFromContent } from "./feature-utils";
 import { FileLogger } from "./logger";
-import { generateEventId, retryPendingSpendEvents, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
+import { generateEventId, retryPendingSpendEvents, resumePendingCheckout, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
 import { claimAccountFreeUsage } from "./constance-account";
 import { DEFAULT_SETTINGS } from "./settings";
 import { TorbertTextAiSettingTab } from "./settings-tab";
@@ -129,12 +129,15 @@ export default class TorbertTextAiPlugin extends Plugin {
         await this.saveSettings();
       }
       this.settings.pendingSpendEvents = Array.isArray(this.settings.pendingSpendEvents) ? this.settings.pendingSpendEvents.filter((item) => item && typeof item.eventId === "string" && Number.isInteger(item.amount) && item.amount > 0) : [];
+      const pendingCheckout = this.settings.pendingCheckout;
+      this.settings.pendingCheckout = pendingCheckout && typeof pendingCheckout.idempotencyKey === "string" && typeof pendingCheckout.planCode === "string" ? pendingCheckout : null;
       await this.saveSettings();
       this.logger.setEnabled(this.settings.enableLogging);
       this.logger.info("Plugin.onload", "Plugin is loading.");
 
       // Background balance sync; never blocks load, fails silently offline.
       void syncPurchasedCharactersFromConstance(this).then(() => retryPendingSpendEvents(this));
+      resumePendingCheckout(this);
 
       if (this.settings.showRibbonIcon) {
         this.addRibbonIcon("wand", "Replace bold with highlight", () => this.applyTransformationToEditor(null, "boldToHighlight"));
@@ -526,17 +529,6 @@ export default class TorbertTextAiPlugin extends Plugin {
     this.logger.warn("chargeCharacters", "Credit spend status is unknown; blocking the AI call until the stable event is reconciled.");
     new Notice("Torbert: billing could not be verified. Retry after the connection is restored.");
     return false;
-  }
-
-  pollAfterCheckout(): void {
-    let attempts = 0;
-    const intervalId = window.setInterval(() => {
-      attempts += 1;
-      void syncPurchasedCharactersFromConstance(this);
-      if (attempts >= 6) {
-        window.clearInterval(intervalId);
-      }
-    }, 15000);
   }
 
   /** Preview and apply a transformation to the active editor or current selection. */

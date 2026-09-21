@@ -1,5 +1,9 @@
 # Release Notes
 
+## 5.8.12 - 2026-09-22
+
+- Updated Constance checkout to use the authenticated plan-code flow, stable idempotency, and webhook-authoritative settlement polling.
+
 ## 5.8.5 - 2026-09-20
 
 Metadata-only patch preparation: synchronized all version surfaces and the

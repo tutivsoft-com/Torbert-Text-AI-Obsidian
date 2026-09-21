@@ -13,34 +13,107 @@ const APP_ID = "torbert-text-ai-obsidian";
 // reads and spends require the authenticated Constance account session.
 export type TorbertPackKey = "usd_001" | "usd_005" | "usd_015";
 
-export const TORBERT_PRICE_IDS: Record<TorbertPackKey, string> = {
-  usd_001: "pri_01m0ced0t5541gpxqn2arcsbb0", // $1  -> 20,000 characters
-  usd_005: "pri_01m0ced26nc1vw1sqmb4a3rg77", // $5  -> 160,000 characters
-  usd_015: "pri_01m0ced3hwwp329w0ejtfp1f94", // $15 -> 640,000 characters
+const TORBERT_PLAN_CODES: Record<TorbertPackKey, "standard" | "pro" | "ultimate"> = {
+  usd_001: "standard",
+  usd_005: "pro",
+  usd_015: "ultimate",
 };
 
-export function openCheckout(plugin: TorbertTextAiPlugin, tier: TorbertPackKey): void {
-  if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) { new Notice("Sign in or create a billing account in Torbert settings before buying characters."); return; }
-  const email = plugin.settings.billingEmail.trim();
-  if (!email || !email.includes("@")) {
-    new Notice("Enter a valid billing email in Torbert settings first.");
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: string): Promise<void> {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await wait(5000);
+    const pending = plugin.settings.pendingCheckout;
+    if (!pending || pending.checkoutId !== checkoutId || !plugin.settings.billingAccessToken) return;
+    try {
+      const response = await requestUrl({
+        url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(checkoutId)}`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` },
+        throw: false,
+      });
+      if (response.status === 401 || response.status === 403) {
+        plugin.settings.billingAccessToken = "";
+        plugin.settings.billingAccountLinked = false;
+        plugin.settings.pendingCheckout = null;
+        await plugin.saveSettings();
+        return;
+      }
+      if (response.status < 200 || response.status >= 300) continue;
+      if (response.json?.data?.settled === true) {
+        plugin.settings.pendingCheckout = null;
+        await plugin.saveSettings();
+        await syncPurchasedCharactersFromConstance(plugin);
+        new Notice("Torbert: payment settled and your character balance was refreshed.", 5000);
+        return;
+      }
+    } catch (error) {
+      console.warn("Torbert: checkout settlement poll failed", error);
+    }
+  }
+}
+
+async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" | "pro" | "ultimate"): Promise<void> {
+  if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+    new Notice("Sign in or create a billing account in Torbert settings before buying characters.");
     return;
   }
-
-  const priceId: string = TORBERT_PRICE_IDS[tier];
-  if (!priceId || priceId === "PENDING_PROVISIONING") {
-    new Notice("Torbert billing is not available for this pack yet.");
-    return;
-  }
-
-  const params = new URLSearchParams({
-    app_id: APP_ID,
-    price_id: priceId,
-    email,
-    external_customer_id: plugin.settings.constanceDeviceId,
+  const pending = plugin.settings.pendingCheckout?.planCode === planCode
+    ? plugin.settings.pendingCheckout
+    : { idempotencyKey: `checkout_${generateEventId()}`, planCode };
+  plugin.settings.pendingCheckout = pending;
+  await plugin.saveSettings();
+  const response = await requestUrl({
+    url: `${BASE_URL}/api/v1/billing/checkout`,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${plugin.settings.billingAccessToken}`,
+      "Idempotency-Key": pending.idempotencyKey,
+    },
+    body: JSON.stringify({ app_id: APP_ID, plan_code: planCode, installation_id: plugin.settings.constanceDeviceId, quantity: 1 }),
+    throw: false,
   });
-  window.open(`${BASE_URL}/buy?${params.toString()}`, "_blank");
-  plugin.pollAfterCheckout();
+  if (response.status === 401 || response.status === 403) {
+    plugin.settings.billingAccessToken = "";
+    plugin.settings.billingAccountLinked = false;
+    plugin.settings.pendingCheckout = null;
+    await plugin.saveSettings();
+    new Notice("Torbert: your billing session expired. Sign in again.");
+    return;
+  }
+  if (response.status < 200 || response.status >= 300) {
+    new Notice(`Torbert: checkout could not be created (HTTP ${response.status}).`);
+    return;
+  }
+  const data = response.json?.data;
+  const checkoutId = String(data?.checkout_id || data?.id || "");
+  const checkoutUrl = String(data?.checkout_url || "");
+  if (!checkoutId || !checkoutUrl) {
+    new Notice("Torbert: Constance returned an incomplete checkout response.");
+    return;
+  }
+  plugin.settings.pendingCheckout = { ...pending, checkoutId };
+  await plugin.saveSettings();
+  window.open(checkoutUrl, "_blank");
+  void pollCheckoutSettlement(plugin, checkoutId);
+}
+
+export function resumePendingCheckout(plugin: TorbertTextAiPlugin): void {
+  const pending = plugin.settings.pendingCheckout;
+  if (!pending) return;
+  if (pending.checkoutId) void pollCheckoutSettlement(plugin, pending.checkoutId);
+  else void startCheckout(plugin, pending.planCode as "standard" | "pro" | "ultimate");
+}
+
+export function openCheckout(plugin: TorbertTextAiPlugin, tier: TorbertPackKey): void {
+  void startCheckout(plugin, TORBERT_PLAN_CODES[tier]).catch((error) => {
+    console.error("Torbert: authenticated checkout failed", error);
+    new Notice("Torbert: checkout could not be started. Retry from settings.");
+  });
 }
 
 export function generateEventId(): string {

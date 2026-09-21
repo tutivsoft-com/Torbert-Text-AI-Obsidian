@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.8.12 - 2026-09-22
+
+- Migrated authenticated checkout to the Contract v9 plan-code endpoint with idempotency and settlement polling.
+
 ## 5.8.11 - 2026-09-21
 
 - Incremented release metadata without rebuilding the plugin.

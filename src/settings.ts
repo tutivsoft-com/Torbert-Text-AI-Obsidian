@@ -44,4 +44,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   freeCharacters: 0,
   purchasedCharacters: 0,
   pendingSpendEvents: [],
+  pendingCheckout: null,
 };

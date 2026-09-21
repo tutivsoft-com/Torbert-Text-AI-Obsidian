@@ -36,6 +36,7 @@ export interface PluginSettings {
   freeCharacters: number;
   purchasedCharacters: number;
   pendingSpendEvents: Array<{ eventId: string; amount: number }>;
+  pendingCheckout: { idempotencyKey: string; planCode: string; checkoutId?: string } | null;
 }
 
 export interface TransformationContext {
