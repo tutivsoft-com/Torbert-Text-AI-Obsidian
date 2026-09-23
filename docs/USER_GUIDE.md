@@ -53,18 +53,7 @@ Review contract
 
 ## AI features
 
-AI actions include grammar correction, reading highlights, summaries, tags, frontmatter, summary prefixes, AI filename generation, and folder classification. File and folder actions also include AI rename, AI folder classification, and saved prompt presets.
-
-Example frontmatter:
-
-```yaml
----
-summary: "Short searchable description of the note."
-tags:
-  - project-x
-  - meeting
----
-```
+AI actions include reading highlights, summaries, summary prefixes, folder classification, and saved prompt presets. AI metadata and tags belong in Tundra, note renaming in Denali, and proofreading in Culebra.
 
 AI actions send selected or note content to the configured provider. Review the preview before applying it.
 

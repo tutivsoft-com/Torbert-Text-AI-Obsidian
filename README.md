@@ -1,10 +1,10 @@
 # Torbert Text AI
 
-Apply Markdown cleanup and text transformations in Obsidian, including AI-assisted correction, summaries, tags, filenames, frontmatter, folder classification, and reading highlights.
+Apply Markdown cleanup and text transformations in Obsidian, including summaries, folder classification, and reading highlights.
 
-Version: `5.8.12` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
+Version: `5.8.13` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
 
-Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian). This checkout is the private/source mirror.
+Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian). This checkout contains the public release source and assets.
 
 ## Features
 
@@ -19,10 +19,10 @@ Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://
 
 1. Install and enable Torbert Text AI.
 2. Open the editor, file explorer, or folder context menu.
-3. Choose **Torbert Text AI** and select a transformation. You can also search the command palette for `Torbert Text AI:` to find every transformation, restore the latest change, rename/classify the current note, or inspect the current folder.
+3. Choose **Torbert Text AI** and select a transformation. You can also search the command palette for `Torbert Text AI:` to find every transformation, restore the latest change, classify the current note, or inspect the current folder.
 4. Configure the provider and API credentials in **Settings > Community plugins > Torbert Text AI**.
 
-Folder operations show a preview before writing changes. Review AI-generated results before relying on them.
+Folder operations show a preview before writing changes. Review AI-generated results before relying on them. For AI metadata and tags use Tundra; for AI note renaming use Denali; for proofreading use Culebra.
 
 ## Network Use and Privacy
 
@@ -40,9 +40,9 @@ Torbert Text AI uses Constance (TutivSoft central billing) for one-time
 character packs — no subscriptions. The current source uses app ID
 `torbert-text-ai-obsidian`, account authentication, a stable linked
 installation ID, server-authoritative free usage, and authenticated paid
-spend. See `CONSTANCE_BILLING_CONTRACT_2026-09-20.md` for the exact contract.
+spend. See the billing contract in the private source repository for the exact contract.
 
-Each AI call costs `ceil(chars/1000)` credits. The plugin claims account free
+Each AI call charges its input character count (minimum one character). The plugin claims account free
 usage through `/api/v1/billing/free-usage/claim`, spends purchased characters
 through `/api/v1/billing/credits/spend`, and persists pending events so a lost
 response is retried with the same event ID. Checkout uses a server-resolved
@@ -52,12 +52,7 @@ current source behavior.
 
 ## Development
 
-```bash
-npm install
-npm run typecheck
-npm run build
-npm test
-```
+The private source repository contains the build scripts and tests. This public repository provides the complete reviewable source and release assets.
 
 The release assets are `main.js`, `manifest.json`, and `styles.css`.
 
@@ -74,15 +69,6 @@ esbuild. Release assets are `main.js`, `manifest.json`, and `styles.css`.
 GitHub release assets are attested by the repository workflow so their
 provenance can be verified independently.
 
-## Public Repository Workflow
+## Release source
 
-This checkout is the private/source repository. Copy the contents of
-[`publish/`](./publish/) into the root of the separate public GitHub repository.
-Never copy API keys, credentials, `plugin.log`, `node_modules`, or private
-project metadata.
-
-The public root needs `README.md`, `LICENSE`, `manifest.json`, the complete
-`src/` source tree, `main.js`, `styles.css`, and
-`.github/workflows/release-attestations.yml`. For each release, upload only
-`main.js`, `manifest.json`, and `styles.css` as release assets. The release tag
-must exactly match the `version` in `manifest.json`.
+This public checkout includes the reviewable TypeScript source and the built `main.js`. Development, tests, and release preparation take place in the private source repository before the public snapshot is updated.

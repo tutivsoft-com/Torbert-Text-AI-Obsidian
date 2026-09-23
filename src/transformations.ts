@@ -1,4 +1,4 @@
-import { applyFrontMatter, applySummary, applyTagsFrontMatter, generateDelimitedSummaryPrefix, generateFrontMatterFromContent, generateSummaryFromContent, generateTagsFromContent, highlightReadingKeywordsWithOpenAi, rewriteWithOpenAi } from "./ai";
+import { applySummary, generateDelimitedSummaryPrefix, generateSummaryFromContent, highlightReadingKeywordsWithOpenAi, rewriteWithOpenAi } from "./ai";
 import { applyActionItemsSection, cleanupMarkdownStructure } from "./feature-utils";
 import type { Transformation } from "./types";
 
@@ -588,45 +588,6 @@ export const transformations: Record<string, Transformation> = {
       }
     },
   },
-  aiAutoCorrectClarity: {
-    name: "AI Correct & Clarify",
-    category: "AI",
-    requiresAi: true,
-    usesFullText: true,
-    transform: async (text, context) => ({
-      newText: await rewriteWithOpenAi(
-        context.settings,
-        "Correct spelling, punctuation, grammar, casing, and small clarity issues. Do not change the real meaning. Make only minor edits needed to make the text clear.",
-        text,
-        context.abortSignal,
-      ),
-      noticeText: "AI corrected and clarified text.",
-    }),
-  },
-  aiCorrectSpellingCasingGrammar: {
-    name: "AI Grammar Fix",
-    category: "AI",
-    requiresAi: true,
-    usesFullText: true,
-    transform: async (text, context) => ({
-      newText: await rewriteWithOpenAi(
-        context.settings,
-        "Correct only spelling, casing, and grammar. Do not rewrite style, do not add or remove ideas, and do not change punctuation unless required for grammar.",
-        text,
-        context.abortSignal,
-      ),
-      noticeText: "AI corrected spelling, casing, and grammar.",
-    }),
-  },
-  aiCreateFrontMatter: {
-    name: "AI Frontmatter",
-    category: "AI",
-    requiresAi: true,
-    transform: async (text, context) => ({
-      newText: applyFrontMatter(text, await generateFrontMatterFromContent(context.settings, "current-note", text, context.abortSignal)),
-      noticeText: "AI created or updated frontmatter.",
-    }),
-  },
   aiNoteSummary: {
     name: "AI Note Summary",
     category: "AI",
@@ -636,13 +597,5 @@ export const transformations: Record<string, Transformation> = {
       noticeText: "AI created or updated note summary.",
     }),
   },
-  aiTagsOnly: {
-    name: "AI Tags Only",
-    category: "AI",
-    requiresAi: true,
-    transform: async (text, context) => ({
-      newText: applyTagsFrontMatter(text, await generateTagsFromContent(context.settings, text, context.abortSignal)),
-      noticeText: "AI created or updated tags only.",
-    }),
-  },
+
 };

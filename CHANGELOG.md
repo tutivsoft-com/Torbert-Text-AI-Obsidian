@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.8.13 - 2026-09-23
+
+- Focused Torbert on text transformations, summaries, reading highlights, folder classification, and reports. AI metadata and tags, note renaming, and proofreading now belong to their dedicated plugins.
+- Corrected character billing documentation and aligned checkout pack codes with the live catalog.
+- Made checkout retries resumable using a stable idempotency key.
+
 ## 5.8.12 - 2026-09-22
 
 - Migrated authenticated checkout to the Contract v9 plan-code endpoint with idempotency and settlement polling.

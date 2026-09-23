@@ -11,8 +11,7 @@ This document describes what each text command does, why it exists, and a sample
 - Folder-menu commands transform all Markdown files in the selected folder and its subfolders.
 - Every transformation is available from the command palette under a `Torbert Text AI: Category / Name` label, as well as the relevant editor, file, or folder menu.
 - AI commands use the configured provider. A manually entered OpenRouter API key takes precedence; when blank, a built-in encrypted fallback may be used if available.
-- AI filename and frontmatter commands sample beginning, middle, and ending note text, capped at 5000 characters total.
-- The plugin records the last 20 operations so recent text edits, file edits, recursive folder batches, frontmatter updates, and AI renames can be restored.
+- The plugin records the last 20 operations so recent text edits, file edits, recursive folder batches, summary updates and folder classification can be restored.
 
 ## Commands
 
@@ -642,101 +641,14 @@ Output:
 
 Notice: `Error: Invalid URI sequence.`
 
-### AI Auto-Correct and Clarify
+### AI Note Summary
 
-Why: Use OpenAI to correct spelling, punctuation, grammar, casing, and small clarity issues without changing the real meaning.
+Why: Add or update a short `## Summary` section in the note body. Existing frontmatter is preserved.
 
-Input:
-
-```text
-i need teh report today it is very importnt
-```
-
-Possible output:
-
-```text
-I need the report today. It is very important.
-```
-
-Notice: `AI corrected and clarified text.`
-
-### AI Correct Spelling/Casing/Grammar Only
-
-Why: Use OpenAI for stricter correction that avoids style rewrites and only fixes spelling, casing, and grammar.
-
-Input:
-
-```text
-rahul have teh files ready
-```
-
-Possible output:
-
-```text
-Rahul has the files ready.
-```
-
-Notice: `AI corrected spelling, casing, and grammar.`
-
-### AI Create/Update Frontmatter
-
-Why: Add searchable metadata that helps find, organize, and filter notes.
-
-Input:
-
-```md
-# TutivSoft WordPress Setup
-
-Current status notes for the TutivSoft commercial WordPress setup, including billing, plugin, and launch tasks.
-```
-
-Possible output:
-
-```md
----
-title: "TutivSoft WordPress Setup"
-aliases:
-  - "TutivSoft commercial WordPress setup"
-tags:
-  - tutivsoft
-  - wordpress
-  - commercial-setup
-keywords:
-  - billing
-  - plugin
-  - launch
-summary: "Current status notes for the TutivSoft commercial WordPress setup."
-content_type: "status-note"
-status: "active"
----
-
-# TutivSoft WordPress Setup
-
-Current status notes for the TutivSoft commercial WordPress setup, including billing, plugin, and launch tasks.
-```
-
-Notice: `AI created or updated frontmatter.`
-
-### AI Rename File(s) from Contents
-
-File and folder menu action.
-
-Why: Rename Markdown files with specific, keyword-rich names that are easy to search later.
-
-Example current file:
-
-```text
-Untitled.md
-```
-
-Possible renamed file:
-
-```text
-tutivsoft-wordpress-commercial-setup-status.md
-```
+AI metadata and tags are handled by Tundra, note renaming by Denali, and proofreading by Culebra.
 
 ### Restore Last Change
 
 Why: Restore the most recent Torbert Text AI operation from the plugin history stack.
 
-Restore can roll back text transformations, single-file changes, recursive folder changes, frontmatter updates, and AI file renames when the previous file path is still available or can be recreated.
+Restore can roll back text transformations, single-file changes, recursive folder changes, summary updates and folder classification when the previous file path is still available or can be recreated.

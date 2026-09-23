@@ -286,47 +286,6 @@ export async function highlightReadingKeywordsWithOpenAi(settings: PluginSetting
   ].join(" "), "Add only ==highlight== markup to the text.", text, abortSignal, getLargeContentModelOverride(settings), "TEXT TO HIGHLIGHT");
 }
 
-export async function generateFileNameFromContent(settings: PluginSettings, currentBaseName: string, text: string, abortSignal?: AbortSignal): Promise<string> {
-  const sampledText = buildThreePartSample(text);
-  const rawName = await requestOpenAiText(settings, [
-    "You create searchable Markdown file names.",
-    "Return only one filename stem with no extension.",
-    "Use specific keywords from the note.",
-    "Make it easy to search and find later.",
-    "Use 4 to 10 words, lowercase words separated by hyphens.",
-    "Do not include dates unless the note is clearly about a specific date.",
-  ].join(" "), [
-    `Current filename: ${currentBaseName}`,
-    "Create a better filename from this sampled note content.",
-    "The sample contains beginning, middle, and ending text and is capped at 5000 characters total.",
-    "",
-    sampledText,
-  ].join("\n"), undefined, abortSignal);
-
-  return sanitizeFileNameStem(rawName) || sanitizeFileNameStem(currentBaseName) || "untitled-note";
-}
-
-export async function generateFrontMatterFromContent(settings: PluginSettings, currentBaseName: string, text: string, abortSignal?: AbortSignal): Promise<string> {
-  const sampledText = buildThreePartSample(text);
-  const frontMatter = await requestOpenAiText(settings, [
-    "You create useful YAML frontmatter for Markdown notes.",
-    "Return only a YAML frontmatter block, including the opening and closing --- lines.",
-    "Do not wrap it in code fences.",
-    "Use concise, searchable fields that help find, organize, and filter notes.",
-    "Prefer fields: title, aliases, tags, keywords, summary, content_type, topics, people, organizations, status.",
-    "Omit fields when the sampled content does not support them.",
-    "Use safe YAML strings and arrays.",
-  ].join(" "), [
-    `Current filename: ${currentBaseName}`,
-    "Create frontmatter from this sampled note content.",
-    "The sample contains beginning, middle, and ending text and is capped at 5000 characters total.",
-    "",
-    sampledText,
-  ].join("\n"), undefined, abortSignal);
-
-  return normalizeFrontMatter(frontMatter);
-}
-
 export async function generateSummaryFromContent(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
   return requestOpenAiText(settings, [
     "You summarize Markdown notes for Obsidian.",
@@ -355,22 +314,6 @@ export async function generateDelimitedSummaryPrefix(settings: PluginSettings, t
     "",
     buildThreePartSample(text),
   ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " ").replace(/:-:/g, "").trim());
-}
-
-export async function generateTagsFromContent(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string[]> {
-  const rawTags = await requestOpenAiText(settings, [
-    "You generate useful Obsidian tags from Markdown note content.",
-    "Return only tags separated by commas.",
-    "Use 3 to 10 concise lowercase tags.",
-    "Tags must not include #, spaces, punctuation, quotes, YAML, or code fences.",
-    "Use hyphens only when needed inside a tag.",
-  ].join(" "), [
-    "Generate tags from this sampled note content.",
-    "",
-    buildThreePartSample(text),
-  ].join("\n"), undefined, abortSignal);
-
-  return normalizeTags(rawTags);
 }
 
 export async function classifyFolderFromContent(settings: PluginSettings, folders: string[], text: string, abortSignal?: AbortSignal): Promise<string> {
@@ -411,16 +354,6 @@ export function buildThreePartSample(text: string, maxCharacters = 5000): string
   ].join("\n").slice(0, maxCharacters);
 }
 
-export function applyFrontMatter(text: string, frontMatter: string): string {
-  const normalizedFrontMatter = normalizeFrontMatter(frontMatter);
-
-  if (/^---\n[\s\S]*?\n---\n?/.test(text)) {
-    return text.replace(/^---\n[\s\S]*?\n---\n?/, `${normalizedFrontMatter}\n\n`);
-  }
-
-  return `${normalizedFrontMatter}\n\n${text.replace(/^\n+/, "")}`;
-}
-
 export function applySummary(text: string, summary: string): string {
   const cleanSummary = summary.trim();
 
@@ -428,102 +361,13 @@ export function applySummary(text: string, summary: string): string {
     return text;
   }
 
-  if (/^---\n[\s\S]*?\n---\n?/.test(text)) {
-    const updated = text.replace(/^---\n([\s\S]*?)\n---\n?/, (_match, body: string) => {
-      const lines = body.split("\n");
-      const summaryIndex = lines.findIndex((line) => /^summary\s*:/i.test(line));
-      const summaryLine = `summary: ${JSON.stringify(cleanSummary)}`;
-
-      if (summaryIndex >= 0) {
-        lines[summaryIndex] = summaryLine;
-      } else {
-        lines.push(summaryLine);
-      }
-
-      return `---\n${lines.join("\n")}\n---\n\n`;
-    });
-
-    return updated;
-  }
-
   const section = `## Summary\n\n${cleanSummary}`;
-
-  if (/^## Summary\s*$/im.test(text)) {
-    return text.replace(/^## Summary\s*\n+[\s\S]*?(?=\n#{1,6}\s|\s*$)/im, `${section}\n\n`);
+  const frontmatter = text.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] || "";
+  const body = text.slice(frontmatter.length).replace(/^\s*\n/, "");
+  if (/^## Summary\s*$/im.test(body)) {
+    return frontmatter + body.replace(/^## Summary\s*\n+[\s\S]*?(?=\n#{1,6}\s|\s*$)/im, `${section}\n\n`);
   }
-
-  return `${section}\n\n${text.replace(/^\n+/, "")}`;
-}
-
-export function applyTagsFrontMatter(text: string, tags: string[]): string {
-  const normalizedTags = [...new Set(tags.map((tag) => sanitizeTag(tag)).filter(Boolean))];
-
-  if (normalizedTags.length === 0) {
-    return text;
-  }
-
-  const tagsBlock = ["tags:", ...normalizedTags.map((tag) => `  - ${tag}`)].join("\n");
-
-  if (/^---\n[\s\S]*?\n---\n?/.test(text)) {
-    return text.replace(/^---\n([\s\S]*?)\n---\n?/, (_match, body: string) => {
-      let skippingTagsList = false;
-      const withoutExistingTags = body
-        .split("\n")
-        .filter((line) => {
-          if (/^tags\s*:/i.test(line)) {
-            skippingTagsList = true;
-            return false;
-          }
-
-          if (skippingTagsList && /^\s*-\s+/.test(line)) {
-            return false;
-          }
-
-          skippingTagsList = false;
-          return true;
-        })
-        .join("\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-
-      return `---\n${[withoutExistingTags, tagsBlock].filter(Boolean).join("\n")}\n---\n\n`;
-    });
-  }
-
-  return `---\n${tagsBlock}\n---\n\n${text.replace(/^\n+/, "")}`;
-}
-
-export function sanitizeFileNameStem(value: string): string {
-  return value
-    .trim()
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .replace(/\.md$/i, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9\s._-]/g, " ")
-    .replace(/[\s._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 100)
-    .replace(/-+$/g, "");
-}
-
-export function normalizeTags(value: string): string[] {
-  return value
-    .replace(/^```[\s\S]*?\n/i, "")
-    .replace(/```$/i, "")
-    .split(/[,\n]+/)
-    .map((tag) => sanitizeTag(tag))
-    .filter(Boolean);
-}
-
-function sanitizeTag(value: string): string {
-  return value
-    .trim()
-    .replace(/^["'`#]+|["'`]+$/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9/_-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return `${frontmatter}${frontmatter ? "\n" : ""}${section}\n\n${body.replace(/^\n+/, "")}`;
 }
 
 export function sanitizeFolderName(value: string): string {
@@ -535,21 +379,6 @@ export function sanitizeFolderName(value: string): string {
     .map((part) => part.trim().replace(/[<>:"|?*]/g, "").replace(/\s+/g, " "))
     .filter(Boolean)
     .join("/");
-}
-
-function normalizeFrontMatter(value: string): string {
-  const withoutFences = value
-    .trim()
-    .replace(/^```(?:ya?ml)?\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-
-  const body = withoutFences
-    .replace(/^---\s*/, "")
-    .replace(/\s*---$/, "")
-    .trim();
-
-  return `---\n${body}\n---`;
 }
 
 async function requestOpenAiText(settings: PluginSettings, instructions: string, input: string, modelOverride?: string, abortSignal?: AbortSignal): Promise<string> {

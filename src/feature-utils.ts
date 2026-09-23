@@ -1,5 +1,3 @@
-import { sanitizeFileNameStem } from "./ai";
-
 export interface WeakTitleSuggestion {
   path: string;
   currentBaseName: string;
@@ -30,18 +28,6 @@ export const isWeakTitle = (baseName: string): boolean => {
     /^\d{8}(?:[\s_-]\d+)?$/,
     /^20\d{2}[\s_-]?\d{1,2}[\s_-]?\d{1,2}$/,
   ].some((pattern) => pattern.test(normalized));
-};
-
-export const suggestTitleFromContent = (content: string, fallback: string): string => {
-  const heading = content.match(/^#\s+(.+)$/m)?.[1];
-  const firstUsefulLine = content
-    .replace(/^---\n[\s\S]*?\n---\n?/, "")
-    .split("\n")
-    .map((line) => line.replace(/^[-*+]\s+/, "").replace(/^#+\s+/, "").trim())
-    .find((line) => line.length >= 8 && !/^[-*+]?\s*\[[ xX]\]/.test(line));
-  const candidate = heading || firstUsefulLine || fallback;
-
-  return sanitizeFileNameStem(candidate).split("-").slice(0, 10).join("-") || sanitizeFileNameStem(fallback) || "renamed-note";
 };
 
 export const normalizeNoteForSimilarity = (content: string): string => content

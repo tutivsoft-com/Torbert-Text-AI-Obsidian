@@ -1,6 +1,6 @@
 import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu, type MenuItem } from "obsidian";
-import { classifyFolderFromContent, collectAiUsageDuring, generateFileNameFromContent, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
-import { isWeakTitle, noteSimilarity, parseFolderList, suggestTitleFromContent } from "./feature-utils";
+import { classifyFolderFromContent, collectAiUsageDuring, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
+import { isWeakTitle, noteSimilarity, parseFolderList } from "./feature-utils";
 import { FileLogger } from "./logger";
 import { generateEventId, retryPendingSpendEvents, resumePendingCheckout, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
 import { claimAccountFreeUsage } from "./constance-account";
@@ -210,17 +210,6 @@ export default class TorbertTextAiPlugin extends Plugin {
                     if (hasFileActions) {
                       categoryMenu.addItem((submenuItem) => {
                         submenuItem
-                          .setTitle("AI Rename from Content")
-                          .onClick(() => {
-                            if (target instanceof TFolder) {
-                              void this.renameFilesInFolderFromContents(target);
-                            } else {
-                              void this.renameFileFromContents(target);
-                            }
-                          });
-                      });
-                      categoryMenu.addItem((submenuItem) => {
-                        submenuItem
                           .setTitle("AI Classify Folder")
                           .onClick(() => {
                             if (target instanceof TFolder) {
@@ -338,21 +327,6 @@ export default class TorbertTextAiPlugin extends Plugin {
           void this.applyTransformationToEditor(editor, transformationId);
         },
       });
-    });
-
-    this.addCommand({
-      id: "ai-rename-current-note-from-content",
-      name: "Torbert Text AI: AI / Rename current note from content",
-      checkCallback: (checking) => {
-        const file = this.app.workspace.getActiveFile();
-        if (!(file instanceof TFile) || file.extension !== "md") {
-          return false;
-        }
-        if (!checking) {
-          void this.renameFileFromContents(file);
-        }
-        return true;
-      },
     });
 
     this.addCommand({
@@ -482,9 +456,8 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   /**
-   * Charges the character credits for a single AI call (App_Credit_Unit_Name
-   * is "characters" -- ceil(chars/1000) credits per call). Spends the local
-   * free pool first, then the Constance-backed purchased pool. Returns false
+   * Charges input characters for a single AI call (minimum one). Claims the
+   * account free allowance first, then spends purchased characters. Returns false
    * (and shows a Notice) when authentication, balance, or spend verification
    * is unavailable. AI work never proceeds without an authoritative charge.
    */
@@ -821,140 +794,6 @@ export default class TorbertTextAiPlugin extends Plugin {
     });
   }
 
-  async renameFileFromContents(file: TFile): Promise<void> {
-    const processingNotice = this.startProcessingNotice(`Processing AI rename for ${file.name}`);
-    try {
-      const fileContents = await this.app.vault.read(file);
-      if (!(await this.chargeCharacters(fileContents.length))) {
-        return;
-      }
-      const { result: newBaseName, usage } = await collectAiUsageDuring(() => generateFileNameFromContent(this.settings, file.basename, fileContents, processingNotice.abortSignal));
-      this.showAiUsage(`AI Rename from Content on ${file.name}`, usage);
-      const newPath = await this.getAvailableSiblingPath(file, `${newBaseName}.md`);
-
-      if (newPath === file.path) {
-        new Notice(`${file.name} already has the suggested name.`);
-        return;
-      }
-
-      await this.recordOperation("AI Rename File from Contents", [{
-        path: file.path,
-        currentPath: newPath,
-        content: fileContents,
-      }]);
-      await this.app.vault.rename(file, newPath);
-      if (!processingNotice.wasCancelled()) {
-        new Notice(`Renamed to ${newPath.split("/").pop() || newPath}.`);
-      }
-      this.logger.info("renameFileFromContents", `Renamed ${file.path} to ${newPath}.`);
-    } catch (error) {
-      this.logger.error("renameFileFromContents", `Failed to rename ${file.path}`, error);
-      new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error renaming ${file.name}. Check developer console.`);
-    } finally {
-      processingNotice.close();
-    }
-  }
-
-  async renameFilesInFolderFromContents(folder: TFolder): Promise<void> {
-    const files = this.getMarkdownFilesInFolder(folder);
-
-    if (files.length === 0) {
-      new Notice(`No Markdown files found in ${folder.name}.`);
-      return;
-    }
-
-    const processingNotice = this.startProcessingNotice(`Processing AI rename for ${files.length} file(s)`);
-
-    const snapshots: OperationHistorySnapshot[] = [];
-    const renamePlan: Array<{ file: TFile; newPath: string }> = [];
-    const reservedPaths = new Set<string>();
-    let renamedCount = 0;
-    let failedCount = 0;
-
-    try {
-      for (const file of files) {
-        try {
-          processingNotice.throwIfCancelled();
-          const fileContents = await this.app.vault.read(file);
-          if (!(await this.chargeCharacters(fileContents.length))) {
-            this.logger.info("renameFilesInFolderFromContents", "Out of characters; stopped the batch.");
-            break;
-          }
-          const { result: newBaseName, usage } = await collectAiUsageDuring(() => generateFileNameFromContent(this.settings, file.basename, fileContents, processingNotice.abortSignal));
-          this.showAiUsage(`AI Rename from Content on ${file.name}`, usage);
-          const newPath = await this.getAvailableSiblingPath(file, `${newBaseName}.md`, reservedPaths);
-
-          if (newPath === file.path) {
-            continue;
-          }
-
-          reservedPaths.add(newPath);
-          snapshots.push({
-            path: file.path,
-            currentPath: newPath,
-            content: fileContents,
-          });
-          renamePlan.push({ file, newPath });
-        } catch (error) {
-          failedCount++;
-          this.logger.error("renameFilesInFolderFromContents", `Failed to rename ${file.path}`, error);
-        }
-      }
-    } catch (error) {
-      this.logger.error("renameFilesInFolderFromContents", `Cancelled or failed rename planning in ${folder.path}`, error);
-      new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error planning renames in ${folder.name}.`);
-      return;
-    } finally {
-      processingNotice.close();
-    }
-
-    const applyRenames = async () => {
-      const applyNotice = this.startProcessingNotice(`Applying ${renamePlan.length} rename(s)`);
-      try {
-      applyNotice.throwIfCancelled();
-      if (snapshots.length > 0) {
-        await this.recordOperation("AI Rename Folder Files from Contents", snapshots);
-      }
-
-      const reportItems: BatchReportItem[] = [];
-      for (const item of renamePlan) {
-        try {
-          applyNotice.throwIfCancelled();
-          const oldPath = item.file.path;
-          await this.app.vault.rename(item.file, item.newPath);
-          renamedCount++;
-          reportItems.push({ path: oldPath, newPath: item.newPath, status: "renamed" });
-        } catch (error) {
-          failedCount++;
-          reportItems.push({ path: item.file.path, newPath: item.newPath, status: "failed", message: String(error) });
-          this.logger.error("renameFilesInFolderFromContents", `Failed to rename ${item.file.path} to ${item.newPath}`, error);
-        }
-      }
-
-      await this.createBatchReport("AI Rename Folder Files from Contents", folder.path, reportItems);
-      const failureText = failedCount > 0 ? ` ${failedCount} file(s) failed.` : "";
-      new Notice(`Renamed ${renamedCount} file(s) in ${folder.name}.${failureText}`);
-      } catch (error) {
-        this.logger.error("renameFilesInFolderFromContents", `Cancelled or failed applying renames in ${folder.path}`, error);
-        new Notice(applyNotice.wasCancelled() ? "Operation cancelled." : `Error applying renames in ${folder.name}.`);
-      } finally {
-        applyNotice.close();
-      }
-    };
-
-    if (renamePlan.length === 0) {
-      new Notice(`No file renames suggested in ${folder.name}.`);
-      return;
-    }
-
-    new BatchPreviewModal(this.app, "AI Rename from Content", renamePlan.map((item) => ({
-      label: item.file.path,
-      detail: `Proposed path: ${item.newPath}`,
-    })), () => {
-      void applyRenames();
-    }).open();
-  }
-
   async classifyFile(file: TFile): Promise<void> {
     await this.classifyFiles([file], file.parent?.path || "");
   }
@@ -1071,33 +910,24 @@ export default class TorbertTextAiPlugin extends Plugin {
     const processingNotice = this.startProcessingNotice(`Creating weak title report for ${folder.name}`);
     try {
       const items: string[] = [];
-      let failedCount = 0;
-
       for (const file of this.getMarkdownFilesInFolder(folder)) {
         processingNotice.throwIfCancelled();
         if (!isWeakTitle(file.basename)) {
           continue;
         }
 
-        try {
-          const content = await this.app.vault.read(file);
-          items.push(`- ${file.path} -> ${suggestTitleFromContent(content, file.basename)}.md`);
-        } catch (error) {
-          failedCount++;
-          this.logger.error("createWeakTitlesReport", `Failed to inspect ${file.path}`, error);
-        }
+        items.push(`- ${file.path}`);
       }
 
       const body = [
-        "# Weak Title Suggestions",
+        "# Weak Titles",
         "",
         `Source folder: ${folder.path}`,
         `Created: ${new Date().toISOString()}`,
         "",
         items.length > 0 ? items.join("\n") : "No weak titles found.",
-        failedCount > 0 ? `\nFailed files: ${failedCount}` : "",
       ].filter(Boolean).join("\n");
-      const reportPath = await this.createReportNote(folder.path, "weak-title-suggestions", body);
+      const reportPath = await this.createReportNote(folder.path, "weak-titles", body);
       new Notice(`Weak title report created: ${reportPath}`);
     } catch (error) {
       this.logger.error("createWeakTitlesReport", `Failed to create report for ${folder.path}`, error);
@@ -1388,21 +1218,6 @@ export default class TorbertTextAiPlugin extends Plugin {
       ...(this.settings.operationHistory || []),
     ].slice(0, 20);
     await this.saveSettings();
-  }
-
-  private async getAvailableSiblingPath(file: TFile, fileName: string, reservedPaths = new Set<string>()): Promise<string> {
-    const folderPath = file.parent?.path && file.parent.path !== "/" ? `${file.parent.path}/` : "";
-    const extension = ".md";
-    const baseName = fileName.replace(/\.md$/i, "");
-    let candidatePath = `${folderPath}${baseName}${extension}`;
-    let suffix = 2;
-
-    while (candidatePath !== file.path && (reservedPaths.has(candidatePath) || await this.app.vault.adapter.exists(candidatePath))) {
-      candidatePath = `${folderPath}${baseName}-${suffix}${extension}`;
-      suffix++;
-    }
-
-    return candidatePath;
   }
 
   private async getAvailablePathInFolder(folderPath: string, fileName: string, reservedPaths = new Set<string>()): Promise<string> {
