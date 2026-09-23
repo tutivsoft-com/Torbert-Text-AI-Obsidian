@@ -145,12 +145,12 @@ export default class TorbertTextAiPlugin extends Plugin {
 
       this.addCommand({
         id: "replace-bold-with-highlight",
-        name: "Torbert Text AI: Text Cleanup / Bold to Highlight",
+        name: "Text Cleanup / Bold to Highlight",
         editorCallback: (editor) => this.applyTransformationToEditor(editor, "boldToHighlight"),
       });
       this.addCommand({
         id: "restore-last-torbert-change",
-        name: "Restore last Torbert Text AI change",
+        name: "Restore last change",
         callback: () => {
           void this.restoreLastOperation();
         },
@@ -210,7 +210,7 @@ export default class TorbertTextAiPlugin extends Plugin {
                     if (hasFileActions) {
                       categoryMenu.addItem((submenuItem) => {
                         submenuItem
-                          .setTitle("AI Classify Folder")
+                          .setTitle("Classify folder")
                           .onClick(() => {
                             if (target instanceof TFolder) {
                               void this.classifyFilesInFolder(target);
@@ -306,8 +306,8 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.addSettingTab(new TorbertTextAiSettingTab(this.app, this));
       this.logger.info("Plugin.onload", "Plugin has loaded successfully.");
     } catch (error) {
-      console.error("Fatal error loading Text Format Helper plugin:", error);
-      new Notice("Error: Text Format Helper plugin failed to load. Check developer console.");
+      console.error("Torbert Text AI failed to load:", error);
+      new Notice("Torbert Text AI could not load. Check the developer console.");
     }
   }
 
@@ -322,7 +322,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       const category = transformation.category || "Text Cleanup";
       this.addCommand({
         id: `transform-${transformationId}`,
-        name: `Torbert Text AI: ${category} / ${transformation.name}`,
+        name: `${category} / ${this.friendlyTransformationName(transformation.name)}`,
         editorCallback: (editor) => {
           void this.applyTransformationToEditor(editor, transformationId);
         },
@@ -331,7 +331,7 @@ export default class TorbertTextAiPlugin extends Plugin {
 
     this.addCommand({
       id: "ai-classify-current-note",
-      name: "Torbert Text AI: AI / Classify current note folder",
+      name: "AI / Classify current note folder",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         if (!(file instanceof TFile) || file.extension !== "md") {
@@ -346,7 +346,7 @@ export default class TorbertTextAiPlugin extends Plugin {
 
     this.addCommand({
       id: "report-weak-titles-current-folder",
-      name: "Torbert Text AI: Markdown Notes / Find weak titles in current folder",
+      name: "Markdown Notes / Find weak titles in current folder",
       checkCallback: (checking) => {
         const folder = this.app.workspace.getActiveFile()?.parent;
         if (!(folder instanceof TFolder)) {
@@ -361,7 +361,7 @@ export default class TorbertTextAiPlugin extends Plugin {
 
     this.addCommand({
       id: "report-duplicate-notes-current-folder",
-      name: "Torbert Text AI: Markdown Notes / Find duplicate notes in current folder",
+      name: "Markdown Notes / Find duplicate notes in current folder",
       checkCallback: (checking) => {
         const folder = this.app.workspace.getActiveFile()?.parent;
         if (!(folder instanceof TFolder)) {
@@ -418,8 +418,12 @@ export default class TorbertTextAiPlugin extends Plugin {
     };
   }
 
+  private friendlyTransformationName(name: string): string {
+    return name.replace(/^AI /, "").replace(/^Remove AI /, "Remove ");
+  }
+
   private getTransformationMenuTitle(transformation: { name: string; usesFullText?: boolean }): string {
-    return `${transformation.name}${transformation.usesFullText ? " (Full Text)" : ""}`;
+    return `${this.friendlyTransformationName(transformation.name)}${transformation.usesFullText ? " (Full Text)" : ""}`;
   }
 
   private formatCompactNumber(value: number): string {

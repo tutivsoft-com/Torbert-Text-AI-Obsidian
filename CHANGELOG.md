@@ -1,14 +1,21 @@
 # Changelog
 
+## 5.8.14 - 2026-09-23
+
+- Removed duplicate plugin and AI prefixes from command palette and context menu labels.
+- Corrected the plugin name in the startup error message.
+
 ## 5.8.13 - 2026-09-23
 
 - Focused Torbert on text transformations, summaries, reading highlights, folder classification, and reports. AI metadata and tags, note renaming, and proofreading now belong to their dedicated plugins.
 - Corrected character billing documentation and aligned checkout pack codes with the live catalog.
 - Made checkout retries resumable using a stable idempotency key.
 
-## 5.8.12 - 2026-09-22
+## 5.8.12 - 2026-09-21
 
-- Migrated authenticated checkout to the Contract v9 plan-code endpoint with idempotency and settlement polling.
+- Switched one-time character checkout to authenticated Constance catalog-code
+  checkout with idempotency and settlement polling.
+- Added the required idempotency header to authenticated paid-credit spends.
 
 ## 5.8.11 - 2026-09-21
 

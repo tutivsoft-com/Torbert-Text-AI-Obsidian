@@ -1,14 +1,22 @@
 # Release Notes
 
+## 5.8.14 - 2026-09-23
+
+- Torbert commands now have short, clear names in Obsidian's command palette and context menus.
+- Startup errors now identify Torbert correctly.
+
 ## 5.8.13 - 2026-09-23
 
 - Focused Torbert on text transformations, summaries, reading highlights, folder classification, and reports. AI metadata and tags, note renaming, and proofreading now belong to their dedicated plugins.
 - Corrected character billing documentation and aligned checkout pack codes with the live catalog.
 - Made checkout retries resumable using a stable idempotency key.
 
-## 5.8.12 - 2026-09-22
+## 5.8.12 - 2026-09-21
 
-- Updated Constance checkout to use the authenticated plan-code flow, stable idempotency, and webhook-authoritative settlement polling.
+Billing compatibility patch: one-time character packs now use Constance's
+authenticated server-resolved pack codes, idempotent checkout creation, and
+checkout settlement polling. Paid credit spends include the required
+idempotency key.
 
 ## 5.8.5 - 2026-09-20
 
