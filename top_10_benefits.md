@@ -41,7 +41,7 @@
     - **Example:** Enter your personal OpenRouter API key in settings to pay exact provider token costs.
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.20)
+## Workflow defaults (v5.8.21)
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
 <!-- one-click-workflow:end -->

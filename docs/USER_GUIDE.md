@@ -72,7 +72,7 @@ AI actions use character-based credits. Settings show the balance, one-time pack
 5. Restore the latest operation if needed.
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.20)
+## Workflow defaults (v5.8.21)
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
 <!-- one-click-workflow:end -->

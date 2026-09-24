@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.8.21 (2026-09-25)
+
+- Synchronized the release version across release metadata and current product documentation; plugin behavior is unchanged.
+
 ## 5.8.20 (2026-09-24)
 
 - Verify account character eligibility before sending text to an AI transformation.

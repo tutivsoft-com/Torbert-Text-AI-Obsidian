@@ -1,5 +1,10 @@
 # Release Notes
 
+## 5.8.21 - 2026-09-25
+
+- Updated release metadata and current documentation version references. Plugin behavior is unchanged.
+
+
 ## 5.8.14 - 2026-09-23
 
 - Torbert commands now have short, clear names in Obsidian's command palette and context menus.
