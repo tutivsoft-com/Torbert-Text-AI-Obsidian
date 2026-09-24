@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.8.19 (2026-09-24)
+
+- Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
+
+
 ## 5.8.18
 
 - Made before/after transformation review an optional setting; direct application is the default.

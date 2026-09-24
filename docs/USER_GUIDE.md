@@ -70,3 +70,9 @@ AI actions use character-based credits. Settings show the balance, one-time pack
 3. Check dates, names, links, code blocks, and frontmatter.
 4. Restore the latest operation if the result is not wanted.
 5. Restore the latest operation if needed.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v5.8.19)
+
+Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
+<!-- one-click-workflow:end -->

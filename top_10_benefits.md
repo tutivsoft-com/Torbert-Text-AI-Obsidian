@@ -1,4 +1,4 @@
-﻿# Top 10 Benefits of Torbert Text AI
+# Top 10 Benefits of Torbert Text AI
 
 1. **In-Editor Contextual Writing Transformations**
    - **Benefit:** Transform, summarize, polish, or expand text directly inside your active note without switching apps.
@@ -39,3 +39,9 @@
 10. **Custom API Key Support**
     - **Benefit:** Bring your own OpenRouter key for direct billing, or utilize the repository's built-in capped key.
     - **Example:** Enter your personal OpenRouter API key in settings to pay exact provider token costs.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v5.8.19)
+
+Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
+<!-- one-click-workflow:end -->

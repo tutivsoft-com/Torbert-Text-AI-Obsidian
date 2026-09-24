@@ -134,3 +134,9 @@ This release keeps the plugin behavior unchanged while making the codebase much 
 - `main.js` is now generated from TypeScript source in `src/`.
 - The text transformations are documented with sample inputs and outputs.
 - The generated bundle was compared against the original bundle with sample cases, and the outputs matched.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v5.8.19)
+
+Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
+<!-- one-click-workflow:end -->
