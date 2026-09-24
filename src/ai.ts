@@ -12,7 +12,7 @@ import type { PluginSettings } from "./types";
 // bundleable/testable standalone via tests/features.test.mjs, which externals "obsidian").
 const REMOTE_MANIFEST_PASSPHRASE = "Kivu.RemoteKeyManifest.v1.2026D";
 const REMOTE_MANIFEST_URL =
-  "https://raw.githubusercontent.com/tutivsoft-com/Resources/main/desktop-app-torbert-text-ai.txt";
+  "https://raw.githubusercontent.com/tutivsoft-com/Resources/main/Torbert-Text-AI-Obsidian-public.txt";
 
 interface EncryptedSecretEnvelope {
   q: number;
@@ -516,7 +516,7 @@ async function requestOpenAiResponsesText(settings: PluginSettings, instructions
     apiKey = await resolveApiKey(settings);
   } catch (error) {
     console.error("Torbert Text AI: failed to resolve an OpenRouter API key", error);
-    throw new Error("OpenRouter API key is not configured and the built-in key could not be fetched.");
+    throw new Error("Torbert AI is temporarily unavailable. Check your connection and try again.");
   }
 
   if (!apiKey) {

@@ -40,7 +40,7 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("Getting started").setHeading();
     containerEl.createEl("p", {
-      text: "Non-AI transformations stay inside this vault. AI transformations are optional and send the selected text or note content to OpenRouter when you run them. An API key is optional when Torbert's built-in service is available. Note and folder edits show a local preview before writing, and the latest applied change can be restored from the command palette. Every transformation is also searchable in the command palette under Torbert Text AI.",
+      text: "Non-AI transformations stay inside this vault. AI transformations are optional and send the selected text or note content to OpenRouter when you run them. An API key is optional when Torbert's built-in service is available. Note and folder edits apply when launched; the latest applied change can be restored from the command palette. Every transformation is also searchable in the command palette under Torbert Text AI.",
     });
 
     new Setting(containerEl).setName("Billing").setHeading();
@@ -129,7 +129,7 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("OpenRouter API key")
-      .setDesc("Optional. Stored in this vault's local plugin data and sent only to OpenRouter. If blank, Torbert may use its built-in service when available; AI actions still send note text to OpenRouter.")
+      .setDesc("Optional personal override. Torbert loads its own capped key automatically when this is blank; AI actions still send note text to OpenRouter.")
       .addText((text) => text
         .setPlaceholder("sk-...")
         .setValue(this.plugin.settings.openAiApiKey)

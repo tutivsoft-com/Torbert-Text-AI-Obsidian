@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.8.15 - 2026-09-24
+
+- Pointed the Antero-compatible key loader at this repository's dedicated $2 no-reset OpenRouter manifest.
+
 ## 5.8.14 - 2026-09-23
 
 - Removed duplicate plugin and AI prefixes from command palette and context menu labels.

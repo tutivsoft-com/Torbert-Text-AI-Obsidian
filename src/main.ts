@@ -73,39 +73,14 @@ function summarizeTextChange(before: string, after: string): string {
   return lines.join("\n");
 }
 
-/** Shows a bounded before/after preview so batch edits are never implicit. */
+/** Existing command calls apply immediately; operation history remains available for Undo. */
 class BatchPreviewModal extends Modal {
-  constructor(
-    app: App,
-    private readonly title: string,
-    private readonly items: PreviewItem[],
-    private readonly onApply: () => void,
-  ) {
+  constructor(app: App, _title: string, _items: PreviewItem[], private readonly onApply: () => void) {
     super(app);
   }
 
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.createEl("h2", { text: this.title });
-    contentEl.createEl("p", { text: `${this.items.length} item(s) will change. Nothing is written until you choose Apply.` });
-    const preview = contentEl.createEl("pre");
-    const previewLines = this.items.flatMap((item) => [item.label, ...(item.detail ? item.detail.split("\n") : [])]);
-    preview.setText(previewLines.slice(0, 240).join("\n") || "No changes.");
-    preview.style.maxHeight = "420px";
-    preview.style.overflow = "auto";
-    const buttonRow = contentEl.createDiv();
-    buttonRow.style.display = "flex";
-    buttonRow.style.gap = "8px";
-    buttonRow.style.justifyContent = "flex-end";
-    const cancelButton = buttonRow.createEl("button", { text: "Cancel" });
-    cancelButton.onclick = () => this.close();
-    const applyButton = buttonRow.createEl("button", { text: "Apply" });
-    applyButton.addClass("mod-cta");
-    applyButton.onclick = () => {
-      this.close();
-      this.onApply();
-    };
+  open(): void {
+    this.onApply();
   }
 }
 
@@ -115,7 +90,7 @@ export default class TorbertTextAiPlugin extends Plugin {
   private logger!: FileLogger;
 
   async onload(): Promise<void> {
-    this.support = new PluginSupport(this, { name: "Torbert Text AI", summary: "Transform, summarize, organize, and clean Markdown text.", quickStart: ["Sign in to billing in Settings.", "Select text or open a note.", "Choose a Torbert transformation and review the result."], commands: ["Open transformations", "Undo last operation", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Confirm the current note is Markdown and editable."] });
+    this.support = new PluginSupport(this, { name: "Torbert Text AI", summary: "Transform, summarize, organize, and clean Markdown text.", quickStart: ["Sign in to billing in Settings.", "Select text or open a note.", "Choose a Torbert transformation; it applies automatically and can be undone."], commands: ["Open transformations", "Undo last operation", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Confirm the current note is Markdown and editable."] });
     this.support.start();
     try {
       const logFilePath = `${this.manifest.dir || "."}/plugin.log`;

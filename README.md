@@ -2,7 +2,7 @@
 
 Apply Markdown cleanup and text transformations in Obsidian, including summaries, folder classification, and reading highlights.
 
-Version: `5.8.14` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
+Version: `5.8.15` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
 
 Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian). This checkout contains the public release source and assets.
 
@@ -11,25 +11,25 @@ Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://
 - Transform selected text, the current note, Markdown files, or folders.
 - Use non-AI Markdown cleanup tools such as formatting conversion, URL tools, duplicate-line removal, numbering repair, and title checks.
 - Use OpenRouter for optional AI transformations.
-- Preview recursive folder changes before applying them.
+- Apply folder changes when launched and restore the last operation with Undo.
 - Restore recent plugin changes from the command palette.
-- Store a manually entered API key in Obsidian's local plugin settings; a built-in encrypted fallback may be available when the field is blank.
+- Store a manually entered API key in Obsidian's local plugin settings; the repository's own capped encrypted key loads when the field is blank.
 
 ## Usage
 
 1. Install and enable Torbert Text AI.
 2. Open the editor, file explorer, or folder context menu.
 3. Choose **Torbert Text AI** and select a transformation. You can also search the command palette for `Torbert Text AI:` to find every transformation, restore the latest change, classify the current note, or inspect the current folder.
-4. Configure the provider and API credentials in **Settings > Community plugins > Torbert Text AI**.
+4. Optionally change the provider and API credentials in **Settings > Community plugins > Torbert Text AI**.
 
-Folder operations show a preview before writing changes. Review AI-generated results before relying on them. For AI metadata and tags use Tundra; for AI note renaming use Denali; for proofreading use Culebra.
+Folder operations run when launched and can be restored with Undo. Review AI-generated results before relying on them. For AI metadata and tags use Tundra; for AI note renaming use Denali; for proofreading use Culebra.
 
 ## Network Use and Privacy
 
 AI transformations require network access to the provider selected in settings:
 
 - OpenRouter requests use the configured base URL, normally `https://openrouter.ai/api/v1`, and send the selected note text or sampled note content to the chosen model.
-- A manually entered API key takes precedence and is stored in Obsidian's local plugin data. When blank, Torbert may use its built-in encrypted fallback. The active key is sent only to the selected AI provider for requests.
+- A manually entered API key takes precedence and is stored in Obsidian's local plugin data. When blank, Torbert loads its own capped key from an encrypted manifest. The active key is sent only to the selected AI provider for requests.
 - The plugin does not use client-side telemetry, Google Analytics, Matomo, advertising, self-updating, or dependency installation.
 - The plugin reads and modifies Markdown files inside the current Obsidian vault only. It does not access files outside the vault.
 - Optional debug logging writes operation details to `plugin.log` in the plugin directory. Disable it in the plugin settings if not needed.
@@ -72,3 +72,7 @@ provenance can be verified independently.
 ## Release source
 
 This public checkout includes the reviewable TypeScript source and the built `main.js`. Development, tests, and release preparation take place in the private source repository before the public snapshot is updated.
+
+## OpenRouter key
+
+AI requests use this repository's own $2 no-reset OpenRouter key from an encrypted remote manifest. A personal key in plugin settings takes priority. The manifest format follows Antero's AES-256-GCM/PBKDF2 loader; the bundled passphrase only obscures the key and cannot prevent extraction from a client.
