@@ -129,10 +129,46 @@ async function fetchConstanceEntitlements(plugin: TorbertTextAiPlugin): Promise<
     headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` },
     throw: false,
   });
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
+    plugin.settings.billingAccessToken = "";
+    plugin.settings.billingAccountLinked = false;
+    await plugin.saveSettings();
+  }
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Entitlement sync failed: HTTP ${response.status}`);
   }
   return response.json?.data;
+}
+
+/** Verify free or purchased character eligibility before a billable AI call. */
+export async function checkCharactersAvailable(plugin: TorbertTextAiPlugin, amount: number): Promise<boolean> {
+  if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+    new Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
+    return false;
+  }
+  await retryPendingSpendEvents(plugin);
+  if (plugin.settings.pendingSpendEvents.length > 0) {
+    new Notice("Torbert: a previous credit spend is still being reconciled. No AI request was sent.");
+    return false;
+  }
+  try {
+    const entitlement = await fetchConstanceEntitlements(plugin);
+    const freeRemaining = Math.max(0, Number(entitlement?.free_usage?.remaining) || 0);
+    const purchasedBalance = Math.max(0, Number(entitlement?.credits?.balance) || 0);
+    plugin.settings.freeCharacters = freeRemaining;
+    plugin.settings.purchasedCharacters = purchasedBalance;
+    await plugin.saveSettings();
+    if (freeRemaining >= amount || purchasedBalance >= amount) return true;
+    new Notice("Torbert: not enough free or purchased characters. No AI request was sent.");
+    return false;
+  } catch {
+    if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+      new Notice("Torbert: your billing session expired. Sign in again before running AI.");
+    } else {
+      new Notice("Torbert: billing could not be verified. No AI request was sent.");
+    }
+    return false;
+  }
 }
 
 export type SpendResult =

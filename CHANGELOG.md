@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.8.20 (2026-09-24)
+
+- Verify account character eligibility before sending text to an AI transformation.
+
 ## 5.8.19 (2026-09-24)
 
 - Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.

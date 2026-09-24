@@ -2,7 +2,7 @@
 
 Apply Markdown cleanup and text transformations in Obsidian, including summaries, folder classification, and reading highlights.
 
-Version: `5.8.19` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
+Version: `5.8.20` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
 
 Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian). This checkout contains the public release source and assets.
 
@@ -42,6 +42,11 @@ character packs — no subscriptions. The current source uses app ID
 installation ID, server-authoritative free usage, and authenticated paid
 spend. See the billing contract in the private source repository for the exact contract.
 
+Before sending text for an AI transformation, Torbert reads the current free
+allowance and purchased balance. It stops without sending the text when the
+account or available characters cannot be verified. Usage is claimed or spent
+only when the result is accepted for applying.
+
 Each AI call charges its input character count (minimum one character). The plugin claims account free
 usage through `/api/v1/billing/free-usage/claim`, spends purchased characters
 through `/api/v1/billing/credits/spend`, and persists pending events so a lost
@@ -78,7 +83,7 @@ This public checkout includes the reviewable TypeScript source and the built `ma
 AI requests use this repository's own $2 no-reset OpenRouter key from an encrypted remote manifest. A personal key in plugin settings takes priority. The manifest format follows Antero's AES-256-GCM/PBKDF2 loader; the bundled passphrase only obscures the key and cannot prevent extraction from a client.
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.19)
+## Workflow defaults (v5.8.20)
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
 <!-- one-click-workflow:end -->

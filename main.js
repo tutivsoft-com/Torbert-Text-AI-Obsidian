@@ -900,10 +900,45 @@ async function fetchConstanceEntitlements(plugin) {
     headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` },
     throw: false
   });
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
+    plugin.settings.billingAccessToken = "";
+    plugin.settings.billingAccountLinked = false;
+    await plugin.saveSettings();
+  }
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Entitlement sync failed: HTTP ${response.status}`);
   }
   return (_a = response.json) == null ? void 0 : _a.data;
+}
+async function checkCharactersAvailable(plugin, amount) {
+  var _a, _b;
+  if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+    new import_obsidian2.Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
+    return false;
+  }
+  await retryPendingSpendEvents(plugin);
+  if (plugin.settings.pendingSpendEvents.length > 0) {
+    new import_obsidian2.Notice("Torbert: a previous credit spend is still being reconciled. No AI request was sent.");
+    return false;
+  }
+  try {
+    const entitlement = await fetchConstanceEntitlements(plugin);
+    const freeRemaining = Math.max(0, Number((_a = entitlement == null ? void 0 : entitlement.free_usage) == null ? void 0 : _a.remaining) || 0);
+    const purchasedBalance = Math.max(0, Number((_b = entitlement == null ? void 0 : entitlement.credits) == null ? void 0 : _b.balance) || 0);
+    plugin.settings.freeCharacters = freeRemaining;
+    plugin.settings.purchasedCharacters = purchasedBalance;
+    await plugin.saveSettings();
+    if (freeRemaining >= amount || purchasedBalance >= amount) return true;
+    new import_obsidian2.Notice("Torbert: not enough free or purchased characters. No AI request was sent.");
+    return false;
+  } catch (e) {
+    if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+      new import_obsidian2.Notice("Torbert: your billing session expired. Sign in again before running AI.");
+    } else {
+      new import_obsidian2.Notice("Torbert: billing could not be verified. No AI request was sent.");
+    }
+    return false;
+  }
 }
 async function spendConstanceCredits(plugin, amount, stableEventId = generateEventId()) {
   const result = await spendAccountCredits(plugin.settings, APP_ID, plugin.settings.constanceDeviceId, stableEventId, amount);
@@ -2191,6 +2226,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         return;
       }
       const textToTransform = selection || targetEditor.getValue();
+      if (transformation.requiresAi && !await checkCharactersAvailable(this, textToTransform.length)) return;
       processingNotice = this.startProcessingNotice(`Processing ${transformation.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(textToTransform, { settings: this.settings, abortSignal })));

@@ -2,7 +2,7 @@ import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu
 import { classifyFolderFromContent, collectAiUsageDuring, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
 import { isWeakTitle, noteSimilarity, parseFolderList } from "./feature-utils";
 import { FileLogger } from "./logger";
-import { generateEventId, retryPendingSpendEvents, resumePendingCheckout, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
+import { checkCharactersAvailable, generateEventId, retryPendingSpendEvents, resumePendingCheckout, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
 import { claimAccountFreeUsage } from "./constance-account";
 import { DEFAULT_SETTINGS } from "./settings";
 import { TorbertTextAiSettingTab } from "./settings-tab";
@@ -508,6 +508,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       // Preserve the original plugin behavior: selected text wins; otherwise
       // transform the full active editor contents.
       const textToTransform = selection || targetEditor.getValue();
+      if (transformation.requiresAi && !(await checkCharactersAvailable(this, textToTransform.length))) return;
       processingNotice = this.startProcessingNotice(`Processing ${transformation.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(textToTransform, { settings: this.settings, abortSignal })));
