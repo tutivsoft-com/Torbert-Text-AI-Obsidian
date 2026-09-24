@@ -2,7 +2,7 @@
 
 ## What Torbert does
 
-Torbert provides small, predictable Markdown transformations plus optional AI actions for notes and folders. Every write operation shows a preview first, and the latest applied operation can be restored.
+Torbert provides small, predictable Markdown transformations plus optional AI actions for notes and folders. A chosen transformation applies when launched, and the latest applied operation can be restored.
 
 ## Choose an action
 
@@ -55,18 +55,18 @@ Review contract
 
 AI actions include reading highlights, summaries, summary prefixes, folder classification, and saved prompt presets. AI metadata and tags belong in Tundra, note renaming in Denali, and proofreading in Culebra.
 
-AI actions send selected or note content to the configured provider. Review the preview before applying it.
+AI actions send selected or note content to the configured provider when launched. Use Restore last change if you need to undo the result.
 
-## Preview, restore, and billing
+## Restore and billing
 
-Nothing is written while a preview is open. Cancel to keep the original. If the note changes before applying, Torbert refuses the stale preview and asks you to run it again. Use **Restore last Torbert Text AI change** when you need to undo the latest applied operation.
+Torbert applies a user-initiated transformation without a second preview dialog. If a note changes during processing, Torbert keeps the newer text. Use **Restore last change** to undo the latest applied operation.
 
 AI actions use character-based credits. Settings show the balance, one-time packs, provider configuration, privacy explanation, and optional debug logging.
 
 ## Safe workflow
 
 1. Test a transformation on a copied note.
-2. Review the before/after preview.
+2. Let Torbert apply the result.
 3. Check dates, names, links, code blocks, and frontmatter.
-4. Apply only when the result is acceptable.
+4. Restore the latest operation if the result is not wanted.
 5. Restore the latest operation if needed.

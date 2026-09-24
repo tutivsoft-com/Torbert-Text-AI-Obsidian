@@ -8,9 +8,9 @@
    - **Benefit:** Apply AI transformations recursively across entire directories of notes.
    - **Example:** Run a batch operation over a folder of daily notes to extract executive summaries into each file.
 
-3. **Safe Previews Before Recursive Execution**
-   - **Benefit:** Prevents accidental file overwrites across large folders with an upfront preview modal.
-   - **Example:** Inspect which 15 notes in a project folder will change before confirming the operation.
+3. **Direct Folder Actions With Restore**
+   - **Benefit:** Checks current file content before writes and keeps a restore path for the last operation.
+   - **Example:** Run a folder action and inspect its progress and result.
 
 4. **Command Palette & Context Menu Ergonomics**
    - **Benefit:** Access all AI actions instantly using keyboard hotkeys or right-click menus.
@@ -37,5 +37,5 @@
    - **Example:** Automatically sort unstructured research clips into topic-based categories.
 
 10. **Custom API Key Support**
-    - **Benefit:** Bring your own OpenRouter key for direct billing, or utilize built-in fallback access.
+    - **Benefit:** Bring your own OpenRouter key for direct billing, or utilize the repository's built-in capped key.
     - **Example:** Enter your personal OpenRouter API key in settings to pay exact provider token costs.

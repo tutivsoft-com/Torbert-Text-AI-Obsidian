@@ -10,7 +10,7 @@ This document describes what each text command does, why it exists, and a sample
 - File-menu commands transform the whole Markdown file.
 - Folder-menu commands transform all Markdown files in the selected folder and its subfolders.
 - Every transformation is available from the command palette under a `Torbert Text AI: Category / Name` label, as well as the relevant editor, file, or folder menu.
-- AI commands use the configured provider. A manually entered OpenRouter API key takes precedence; when blank, a built-in encrypted fallback may be used if available.
+- AI commands use the configured provider. A manually entered OpenRouter API key takes precedence; when blank, the repository's dedicated encrypted key manifest is loaded automatically.
 - The plugin records the last 20 operations so recent text edits, file edits, recursive folder batches, summary updates and folder classification can be restored.
 
 ## Commands
