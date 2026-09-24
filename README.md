@@ -22,7 +22,7 @@ Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://
 3. Choose **Torbert Text AI** and select a transformation. You can also search the command palette for `Torbert Text AI:` to find every transformation, restore the latest change, classify the current note, or inspect the current folder.
 4. Optionally change the provider and API credentials in **Settings > Community plugins > Torbert Text AI**.
 
-Folder operations run when launched and can be restored with Undo. Review AI-generated results before relying on them. For AI metadata and tags use Tundra; for AI note renaming use Denali; for proofreading use Culebra.
+Folder operations run when launched and can be restored with Undo. Before/after approval windows are off by default; enable **Review before applying** in settings when you want them. For AI metadata and tags use Tundra; for AI note renaming use Denali; for proofreading use Culebra.
 
 ## Network Use and Privacy
 

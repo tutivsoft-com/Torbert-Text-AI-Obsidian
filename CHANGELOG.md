@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.8.18
+
+- Made before/after transformation review an optional setting; direct application is the default.
+
+
 ## 5.8.15 - 2026-09-24
 
 - Pointed the Antero-compatible key loader at this repository's dedicated $2 no-reset OpenRouter manifest.

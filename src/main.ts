@@ -513,7 +513,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(textToTransform, { settings: this.settings, abortSignal })));
       const { newText, noticeText } = transformationResult;
 
-      if (newText !== textToTransform) {
+      if (newText !== textToTransform && this.settings.reviewBeforeApply) {
         new BatchPreviewModal(
           this.app,
           `Review ${transformation.name}`,
@@ -551,6 +551,12 @@ export default class TorbertTextAiPlugin extends Plugin {
         return;
       }
 
+      if (newText !== textToTransform) {
+        const currentText = selection ? targetEditor.getSelection() : targetEditor.getValue();
+        if (currentText !== textToTransform) { new Notice("The text changed while processing. Run the transformation again."); return; }
+        if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) return;
+        await this.recordEditorSnapshot(`Editor: ${transformation.name}`, targetEditor);
+      }
       if (selection) {
         targetEditor.replaceSelection(newText);
       } else {
@@ -586,7 +592,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(fileContents, { settings: this.settings, abortSignal })));
       const { newText, noticeText } = transformationResult;
 
-      if (newText !== fileContents) {
+      if (newText !== fileContents && this.settings.reviewBeforeApply) {
         new BatchPreviewModal(
           this.app,
           `Review ${transformation.name}`,
@@ -618,6 +624,14 @@ export default class TorbertTextAiPlugin extends Plugin {
           },
         ).open();
         return;
+      }
+
+      if (newText !== fileContents) {
+        const currentContents = await this.app.vault.read(file);
+        if (currentContents !== fileContents) { new Notice(`The note changed while processing. Run ${transformation.name} again.`); return; }
+        if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) return;
+        await this.recordOperation(`File: ${transformation.name}`, [{ path: file.path, content: fileContents }]);
+        await this.app.vault.modify(file, newText);
       }
 
       if (!processingNotice.wasCancelled()) {
@@ -685,7 +699,7 @@ export default class TorbertTextAiPlugin extends Plugin {
         }
       }
 
-      if (pendingWrites.length > 0) {
+      if (pendingWrites.length > 0 && this.settings.reviewBeforeApply) {
         const previewItems = pendingWrites.map((item) => ({
           label: item.file.path,
           detail: summarizeTextChange(item.oldText, item.newText),
@@ -695,6 +709,7 @@ export default class TorbertTextAiPlugin extends Plugin {
         }).open();
         return;
       }
+      if (pendingWrites.length > 0) await this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount);
 
       const failureText = failedCount > 0 ? ` ${failedCount} file(s) failed.` : "";
       new Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
@@ -836,6 +851,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       return;
     }
 
+    if (!this.settings.reviewBeforeApply) { await this.applyMovePlan("AI Folder Classification", sourcePath, movePlan, snapshots, failedCount); return; }
     new BatchPreviewModal(this.app, "AI Classify Folder", movePlan.map((item) => ({
       label: item.file.path,
       detail: `Proposed path: ${item.newPath}`,
@@ -966,7 +982,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       }
       const { result: newText, usage } = await collectAiUsageDuring(() => rewriteWithOpenAi(this.settings, preset.prompt, fileContents, processingNotice.abortSignal));
 
-      if (newText !== fileContents) {
+      if (newText !== fileContents && this.settings.reviewBeforeApply) {
         new BatchPreviewModal(
           this.app,
           `Review prompt: ${preset.name}`,
@@ -991,6 +1007,13 @@ export default class TorbertTextAiPlugin extends Plugin {
           },
         ).open();
         return;
+      }
+
+      if (newText !== fileContents) {
+        const currentContents = await this.app.vault.read(file);
+        if (currentContents !== fileContents) { new Notice(`The note changed while processing. Run the prompt again.`); return; }
+        await this.recordOperation(`Prompt: ${preset.name}`, [{ path: file.path, content: fileContents }]);
+        await this.app.vault.modify(file, newText);
       }
 
       if (!processingNotice.wasCancelled()) {
@@ -1048,6 +1071,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       return;
     }
 
+    if (!this.settings.reviewBeforeApply) { await this.applyCustomPromptFolderWrites(folder.path, preset, pendingWrites, snapshots, failedCount); return; }
     new BatchPreviewModal(this.app, `Review prompt: ${preset.name}`, pendingWrites.map((item) => ({
       label: item.file.path,
       detail: summarizeTextChange(item.oldText, item.newText),

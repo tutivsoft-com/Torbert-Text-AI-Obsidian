@@ -37,6 +37,7 @@ export interface PluginSettings {
   purchasedCharacters: number;
   pendingSpendEvents: Array<{ eventId: string; amount: number }>;
   pendingCheckout: { idempotencyKey: string; planCode: string; checkoutId?: string } | null;
+  reviewBeforeApply: boolean;
 }
 
 export interface TransformationContext {
