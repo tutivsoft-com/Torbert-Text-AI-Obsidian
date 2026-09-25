@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.8.23 (2026-09-25)
+
+- Synchronized version metadata and the packaged runtime across the source and public release repositories.
+
+
 ## 5.8.22 (2026-09-25)
 
 - Show AI actions in a live queue with submitted-text excerpts, elapsed time, per-file progress, and completion status.

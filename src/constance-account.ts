@@ -153,7 +153,11 @@ export async function spendAccountCredits(
     const response = await requestUrl({
       url: `${CONSTANCE_ACCOUNT_BASE_URL}/api/v1/billing/credits/spend`,
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${state.billingAccessToken}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.billingAccessToken}`,
+        "Idempotency-Key": eventId,
+      },
       body: JSON.stringify({ app_id: appId, installation_id: installationId, event_id: eventId, amount }),
       throw: false,
     });

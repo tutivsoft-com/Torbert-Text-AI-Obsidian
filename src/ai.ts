@@ -12,7 +12,7 @@ import type { PluginSettings } from "./types";
 // bundleable/testable standalone via tests/features.test.mjs, which externals "obsidian").
 const REMOTE_MANIFEST_PASSPHRASE = "Kivu.RemoteKeyManifest.v1.2026D";
 const REMOTE_MANIFEST_URL =
-  "https://raw.githubusercontent.com/tutivsoft-com/Resources/main/Torbert-Text-AI-Obsidian-public.txt";
+  "https://raw.githubusercontent.com/tutivsoft-com/Resources/main/desktop-app-torbert-text-ai.txt";
 
 interface EncryptedSecretEnvelope {
   q: number;

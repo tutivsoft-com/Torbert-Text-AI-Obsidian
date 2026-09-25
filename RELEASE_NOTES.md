@@ -1,5 +1,10 @@
 # Release Notes
 
+## 5.8.23 - 2026-09-25
+
+- Synchronized version metadata and the packaged runtime across the source and public release repositories.
+
+
 ## 5.8.22 - 2026-09-25
 
 - Added a live AI action queue with text excerpts, elapsed time, batch progress, completion status, and a control to clear waiting actions.

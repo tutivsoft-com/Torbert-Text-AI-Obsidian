@@ -1,47 +1,14 @@
-# Top 10 Benefits of Torbert Text AI
+# Ten ways to use Torbert Text AI
 
-1. **In-Editor Contextual Writing Transformations**
-   - **Benefit:** Transform, summarize, polish, or expand text directly inside your active note without switching apps.
-   - **Example:** Highlight messy bullet points and trigger *Torbert Text AI: Summarize into Action Items*.
+1. **Clean text in place.** Run Markdown and plain-text transformations on a selection or the current note.
+2. **Summarize notes.** Generate a note summary or a summary prefix with the configured AI provider.
+3. **Highlight reading material.** Turn a long note into reading highlights for review.
+4. **Process a folder.** Run a folder transformation directly and restore the last operation if needed.
+5. **Use the command palette.** Search `Torbert Text AI:` for categorized commands.
+6. **Restore a change.** Run `Torbert Text AI: Restore last change` to undo the latest recorded plugin operation.
+7. **Classify notes into folders.** Move a classified note when the command runs; restore the last operation if needed.
+8. **Use saved prompts.** Keep frequently used AI writing instructions ready in settings.
+9. **Choose your provider key.** A personal OpenRouter key takes precedence over an available managed fallback.
+10. **Track character use.** AI actions use account-linked free allowance and one-time purchased character packs shown in settings.
 
-2. **Folder-Wide Batch AI Operations**
-   - **Benefit:** Apply AI transformations recursively across entire directories of notes.
-   - **Example:** Run a batch operation over a folder of daily notes to extract executive summaries into each file.
-
-3. **Direct Folder Actions With Restore**
-   - **Benefit:** Checks current file content before writes and keeps a restore path for the last operation.
-   - **Example:** Run a folder action and inspect its progress and result.
-
-4. **Command Palette & Context Menu Ergonomics**
-   - **Benefit:** Access all AI actions instantly using keyboard hotkeys or right-click menus.
-   - **Example:** Press `Ctrl+P`, type `Torbert:`, and trigger tone adjustments or translations in seconds.
-
-5. **One-Click Change Reversion**
-   - **Benefit:** Restore previous text states from the command palette if an AI transformation isn''t ideal.
-   - **Example:** Execute *Torbert Text AI: Restore recent change* to instantly bring back pre-transformed content.
-
-6. **Flexible OpenRouter Provider Integration**
-   - **Benefit:** Access hundreds of AI models through a unified API interface.
-   - **Example:** Switch between Anthropic Claude, OpenAI GPT-4o, or open-source Llama models based on preference.
-
-7. **Transparent Pay-As-You-Go Character Billing**
-   - **Benefit:** Avoid recurring monthly subscriptions by purchasing affordable, non-expiring character packs.
-   - **Example:** Buy a $1 pack for 20,000 characters to cover occasional writing tweaks without recurring fees.
-
-8. **Privacy-Focused Vault Scoping**
-   - **Benefit:** Reads and modifies only the targeted files inside your active Obsidian vault.
-   - **Example:** Completely isolates your local filesystem; no telemetry, analytics, or external folder access.
-
-9. **Automated Note Classification & Categorization**
-   - **Benefit:** Ask Torbert to analyze content and suggest appropriate note classifications.
-   - **Example:** Automatically sort unstructured research clips into topic-based categories.
-
-10. **Custom API Key Support**
-    - **Benefit:** Bring your own OpenRouter key for direct billing, or utilize the repository's built-in capped key.
-    - **Example:** Enter your personal OpenRouter API key in settings to pay exact provider token costs.
-
-<!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.21)
-
-Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
-<!-- one-click-workflow:end -->
+Torbert does not edit frontmatter or tags, rename notes, or proofread text. Use Tundra, Denali, and Culebra for those jobs respectively. Review AI results after the command runs; Restore last operation is available.

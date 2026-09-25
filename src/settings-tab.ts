@@ -42,11 +42,6 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
     containerEl.createEl("p", {
       text: "Non-AI transformations stay inside this vault. AI transformations are optional and send the selected text or note content to OpenRouter when you run them. An API key is optional when Torbert's built-in service is available. Note and folder edits apply when launched; the latest applied change can be restored from the command palette. Every transformation is also searchable in the command palette under Torbert Text AI.",
     });
-    new Setting(containerEl)
-      .setName("AI request queue")
-      .setDesc("View the active AI action, text excerpt and elapsed time, or clear waiting actions.")
-      .addButton((button) => button.setButtonText("Show queue").onClick(() => this.plugin.aiQueue.open()));
-    new Setting(containerEl).setName("Review before applying").setDesc("Off by default for one-click edits. Turn on to review before/after changes for notes, folders, and AI moves.").addToggle((toggle) => toggle.setValue(this.plugin.settings.reviewBeforeApply).onChange(async (value) => { this.plugin.settings.reviewBeforeApply = value; await this.plugin.saveSettings(); }));
 
     new Setting(containerEl).setName("Billing").setHeading();
     containerEl.createEl("p", {
