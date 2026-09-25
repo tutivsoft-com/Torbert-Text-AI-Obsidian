@@ -1,8 +1,9 @@
 # Changelog
 
-## 5.8.21 (2026-09-25)
+## 5.8.22 (2026-09-25)
 
-- Synchronized the release version across release metadata and current product documentation; plugin behavior is unchanged.
+- Show AI actions in a live queue with submitted-text excerpts, elapsed time, per-file progress, and completion status.
+- Serialize overlapping AI actions and let users clear waiting actions while the active action finishes.
 
 ## 5.8.20 (2026-09-24)
 

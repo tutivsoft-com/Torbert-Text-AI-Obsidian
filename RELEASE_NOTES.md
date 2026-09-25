@@ -1,8 +1,8 @@
 # Release Notes
 
-## 5.8.21 - 2026-09-25
+## 5.8.22 - 2026-09-25
 
-- Updated release metadata and current documentation version references. Plugin behavior is unchanged.
+- Added a live AI action queue with text excerpts, elapsed time, batch progress, completion status, and a control to clear waiting actions.
 
 
 ## 5.8.14 - 2026-09-23
@@ -141,7 +141,7 @@ This release keeps the plugin behavior unchanged while making the codebase much 
 - The generated bundle was compared against the original bundle with sample cases, and the outputs matched.
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.20)
+## Workflow defaults (v5.8.22)
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
 <!-- one-click-workflow:end -->

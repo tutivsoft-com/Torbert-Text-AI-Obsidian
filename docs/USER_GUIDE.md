@@ -57,6 +57,8 @@ AI actions include reading highlights, summaries, summary prefixes, folder class
 
 AI actions send selected or note content to the configured provider when launched. Use Restore last change if you need to undo the result.
 
+The AI request queue opens automatically when an AI action starts. It shows the submitted text excerpt, elapsed seconds, batch progress, and completion status. Overlapping AI actions run one at a time; clear waiting actions from the queue while the active action finishes. Reopen it from Settings or the command palette.
+
 ## Restore and billing
 
 Torbert applies a user-initiated transformation without a second preview dialog. If a note changes during processing, Torbert keeps the newer text. Use **Restore last change** to undo the latest applied operation.
@@ -72,7 +74,7 @@ AI actions use character-based credits. Settings show the balance, one-time pack
 5. Restore the latest operation if needed.
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.21)
+## Workflow defaults (v5.8.22)
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
 <!-- one-click-workflow:end -->

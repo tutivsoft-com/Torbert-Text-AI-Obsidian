@@ -2,7 +2,7 @@
 
 Apply Markdown cleanup and text transformations in Obsidian, including summaries, folder classification, and reading highlights.
 
-Version: `5.8.21` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
+Version: `5.8.22` · [Complete user guide](./docs/USER_GUIDE.md) · [Transformation reference](./docs/TRANSFORMATIONS.md)
 
 Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian). This checkout contains the public release source and assets.
 
@@ -14,6 +14,7 @@ Canonical public repository: [`tutivsoft-com/Torbert-Text-AI-Obsidian`](https://
 - Apply folder changes when launched and restore the last operation with Undo.
 - Restore recent plugin changes from the command palette.
 - Store a manually entered API key in Obsidian's local plugin settings; the repository's own capped encrypted key loads when the field is blank.
+- Inspect the active AI text excerpt and elapsed time in the request queue, and clear waiting actions while the current one finishes.
 
 ## Usage
 
@@ -83,7 +84,7 @@ This public checkout includes the reviewable TypeScript source and the built `ma
 AI requests use this repository's own $2 no-reset OpenRouter key from an encrypted remote manifest. A personal key in plugin settings takes priority. The manifest format follows Antero's AES-256-GCM/PBKDF2 loader; the bundled passphrase only obscures the key and cannot prevent extraction from a client.
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.21)
+## Workflow defaults (v5.8.22)
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
 <!-- one-click-workflow:end -->

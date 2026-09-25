@@ -9,6 +9,7 @@ import { TorbertTextAiSettingTab } from "./settings-tab";
 import { transformations } from "./transformations";
 import type { CustomPromptPreset, OperationHistoryEntry, OperationHistorySnapshot, PluginSettings, TransformationId } from "./types";
 import { PluginSupport } from "./plugin-support";
+import { AiRequestQueue, type QueueReporter } from "./ai-request-queue";
 
 interface BatchReportItem {
   path: string;
@@ -88,6 +89,8 @@ export default class TorbertTextAiPlugin extends Plugin {
   support!: PluginSupport;
   settings!: PluginSettings;
   private logger!: FileLogger;
+  aiQueue!: AiRequestQueue;
+  private queueReporter?: QueueReporter;
 
   async onload(): Promise<void> {
     this.support = new PluginSupport(this, { name: "Torbert Text AI", summary: "Transform, summarize, organize, and clean Markdown text.", quickStart: ["Sign in to billing in Settings.", "Select text or open a note.", "Choose a Torbert transformation; it applies automatically and can be undone."], commands: ["Open transformations", "Undo last operation", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Confirm the current note is Markdown and editable."] });
@@ -97,6 +100,7 @@ export default class TorbertTextAiPlugin extends Plugin {
 
       this.logger = new FileLogger(this.app.vault.adapter, logFilePath);
       await this.loadSettings();
+      this.aiQueue = new AiRequestQueue(this.app, "Torbert");
       if (!this.settings.constanceDeviceId) {
         const bytes = new Uint8Array(16);
         crypto.getRandomValues(bytes);
@@ -131,6 +135,7 @@ export default class TorbertTextAiPlugin extends Plugin {
         },
       });
       this.registerTransformationCommands();
+      this.addCommand({ id: "show-ai-request-queue", name: "Show AI request queue", callback: () => this.aiQueue.open() });
 
       // Editor, file, and recursive folder context menus use the same
       // transformation registry. Editor targets may use the current selection;
@@ -393,6 +398,15 @@ export default class TorbertTextAiPlugin extends Plugin {
     };
   }
 
+  private queueAiTask(label: string, submittedText: string, run: () => Promise<void>): void {
+    void this.aiQueue.enqueue(label, submittedText, async (report) => {
+      this.queueReporter = report;
+      report({ label: "Preparing AI request", submittedText });
+      try { await run(); }
+      finally { this.queueReporter = undefined; }
+    });
+  }
+
   private friendlyTransformationName(name: string): string {
     return name.replace(/^AI /, "").replace(/^Remove AI /, "Remove ");
   }
@@ -484,7 +498,7 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   /** Preview and apply a transformation to the active editor or current selection. */
-  async applyTransformationToEditor(editor: Editor | null, transformationId: TransformationId): Promise<void> {
+  async applyTransformationToEditor(editor: Editor | null, transformationId: TransformationId, queued = false): Promise<void> {
     let processingNotice: ProcessingNotice | null = null;
     try {
       const targetEditor = editor || this.app.workspace.activeEditor?.editor;
@@ -508,6 +522,11 @@ export default class TorbertTextAiPlugin extends Plugin {
       // Preserve the original plugin behavior: selected text wins; otherwise
       // transform the full active editor contents.
       const textToTransform = selection || targetEditor.getValue();
+      if (transformation.requiresAi && !queued) {
+        this.queueAiTask(transformation.name, textToTransform, () => this.applyTransformationToEditor(editor, transformationId, true));
+        return;
+      }
+      if (transformation.requiresAi) this.queueReporter?.({ label: `Processing ${transformation.name}`, submittedText: textToTransform });
       if (transformation.requiresAi && !(await checkCharactersAvailable(this, textToTransform.length))) return;
       processingNotice = this.startProcessingNotice(`Processing ${transformation.name}`);
       const abortSignal = processingNotice.abortSignal;
@@ -579,7 +598,7 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   /** Preview and apply one transformation to a single Markdown file. */
-  async applyTransformationToFile(file: TFile, transformationId: TransformationId): Promise<void> {
+  async applyTransformationToFile(file: TFile, transformationId: TransformationId, queued = false): Promise<void> {
     let processingNotice: ProcessingNotice | null = null;
     try {
       const transformation = transformations[transformationId];
@@ -588,6 +607,11 @@ export default class TorbertTextAiPlugin extends Plugin {
       }
 
       const fileContents = await this.app.vault.read(file);
+      if (transformation.requiresAi && !queued) {
+        this.queueAiTask(`${transformation.name} on ${file.name}`, fileContents, () => this.applyTransformationToFile(file, transformationId, true));
+        return;
+      }
+      if (transformation.requiresAi) this.queueReporter?.({ label: `Processing ${file.name}`, submittedText: fileContents });
       processingNotice = this.startProcessingNotice(`Processing ${file.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(fileContents, { settings: this.settings, abortSignal })));
@@ -650,13 +674,18 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   /** Preview a folder batch, then process files with cancellation and progress. */
-  async applyTransformationToFolder(folder: TFolder, transformationId: TransformationId): Promise<void> {
+  async applyTransformationToFolder(folder: TFolder, transformationId: TransformationId, queued = false): Promise<void> {
     let processingNotice: ProcessingNotice | null = null;
     try {
       const files = this.getMarkdownFilesInFolder(folder);
 
       if (files.length === 0) {
         new Notice(`No Markdown files found in ${folder.name}.`);
+        return;
+      }
+
+      if (transformations[transformationId]?.requiresAi && !queued) {
+        this.queueAiTask(`${transformations[transformationId]?.name || transformationId} in ${folder.name}`, `Folder: ${folder.path}\n${files.length} Markdown file(s)`, () => this.applyTransformationToFolder(folder, transformationId, true));
         return;
       }
 
@@ -675,6 +704,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           }
 
           const fileContents = await this.app.vault.read(file);
+          if (transformation.requiresAi) this.queueReporter?.({ label: `Processing ${file.name}`, submittedText: fileContents, current: processedCount + 1, total: files.length });
           if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) {
             this.logger.info("applyTransformationToFolder", "Out of characters; stopped the batch.");
             break;
@@ -710,6 +740,7 @@ export default class TorbertTextAiPlugin extends Plugin {
         }).open();
         return;
       }
+
       if (pendingWrites.length > 0) await this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount);
 
       const failureText = failedCount > 0 ? ` ${failedCount} file(s) failed.` : "";
@@ -803,7 +834,11 @@ export default class TorbertTextAiPlugin extends Plugin {
     await this.classifyFiles(files, folder.path);
   }
 
-  private async classifyFiles(files: TFile[], sourcePath: string): Promise<void> {
+  private async classifyFiles(files: TFile[], sourcePath: string, queued = false): Promise<void> {
+    if (!queued) {
+      this.queueAiTask(`AI folder classification (${files.length} file${files.length === 1 ? "" : "s"})`, `Source: ${sourcePath || "current note"}\n${files.length} Markdown file(s)`, () => this.classifyFiles(files, sourcePath, true));
+      return;
+    }
     const processingNotice = this.startProcessingNotice(`Processing AI classification for ${files.length} file(s)`);
     const folderChoices = parseFolderList(this.settings.folderClassificationFolders);
     const movePlan: Array<{ file: TFile; newPath: string }> = [];
@@ -816,6 +851,7 @@ export default class TorbertTextAiPlugin extends Plugin {
         try {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
+          this.queueReporter?.({ label: `Classifying ${file.name}`, submittedText: fileContents, current: failedCount + 1, total: files.length });
           if (!(await this.chargeCharacters(fileContents.length))) {
             this.logger.info("classifyFiles", "Out of characters; stopped the batch.");
             break;
@@ -974,10 +1010,16 @@ export default class TorbertTextAiPlugin extends Plugin {
     }
   }
 
-  async applyCustomPromptToFile(file: TFile, preset: CustomPromptPreset): Promise<void> {
+  async applyCustomPromptToFile(file: TFile, preset: CustomPromptPreset, queued = false): Promise<void> {
+    if (!queued) {
+      const contents = await this.app.vault.read(file);
+      this.queueAiTask(`Prompt ${preset.name} on ${file.name}`, contents, () => this.applyCustomPromptToFile(file, preset, true));
+      return;
+    }
     const processingNotice = this.startProcessingNotice(`Processing prompt for ${file.name}`);
     try {
       const fileContents = await this.app.vault.read(file);
+      this.queueReporter?.({ label: `Sending prompt for ${file.name}`, submittedText: fileContents });
       if (!(await this.chargeCharacters(fileContents.length))) {
         return;
       }
@@ -1029,7 +1071,12 @@ export default class TorbertTextAiPlugin extends Plugin {
     }
   }
 
-  async applyCustomPromptToFolder(folder: TFolder, preset: CustomPromptPreset): Promise<void> {
+  async applyCustomPromptToFolder(folder: TFolder, preset: CustomPromptPreset, queued = false): Promise<void> {
+    if (!queued) {
+      const queuedFiles = this.getMarkdownFilesInFolder(folder);
+      this.queueAiTask(`Prompt ${preset.name} in ${folder.name}`, `Folder: ${folder.path}\n${queuedFiles.length} Markdown file(s)`, () => this.applyCustomPromptToFolder(folder, preset, true));
+      return;
+    }
     let processingNotice: ProcessingNotice | null = null;
     const files = this.getMarkdownFilesInFolder(folder);
     const pendingWrites: Array<{ file: TFile; oldText: string; newText: string }> = [];
@@ -1042,6 +1089,7 @@ export default class TorbertTextAiPlugin extends Plugin {
         try {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
+          this.queueReporter?.({ label: `Sending prompt for ${file.name}`, submittedText: fileContents, current: pendingWrites.length + failedCount + 1, total: files.length });
           if (!(await this.chargeCharacters(fileContents.length))) {
             this.logger.info("applyCustomPromptToFolder", "Out of characters; stopped the batch.");
             break;

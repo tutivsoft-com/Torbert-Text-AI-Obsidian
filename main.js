@@ -24,7 +24,7 @@ __export(main_exports, {
   default: () => TorbertTextAiPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/ai.ts
 var REMOTE_MANIFEST_PASSPHRASE = "Kivu.RemoteKeyManifest.v1.2026D";
@@ -1598,6 +1598,7 @@ var TorbertTextAiSettingTab = class extends import_obsidian3.PluginSettingTab {
     containerEl.createEl("p", {
       text: "Non-AI transformations stay inside this vault. AI transformations are optional and send the selected text or note content to OpenRouter when you run them. An API key is optional when Torbert's built-in service is available. Note and folder edits apply when launched; the latest applied change can be restored from the command palette. Every transformation is also searchable in the command palette under Torbert Text AI."
     });
+    new import_obsidian3.Setting(containerEl).setName("AI request queue").setDesc("View the active AI action, text excerpt and elapsed time, or clear waiting actions.").addButton((button) => button.setButtonText("Show queue").onClick(() => this.plugin.aiQueue.open()));
     new import_obsidian3.Setting(containerEl).setName("Review before applying").setDesc("Off by default for one-click edits. Turn on to review before/after changes for notes, folders, and AI moves.").addToggle((toggle) => toggle.setValue(this.plugin.settings.reviewBeforeApply).onChange(async (value) => {
       this.plugin.settings.reviewBeforeApply = value;
       await this.plugin.saveSettings();
@@ -1806,6 +1807,135 @@ var PluginSupport = class {
   }
 };
 
+// src/ai-request-queue.ts
+var import_obsidian5 = require("obsidian");
+var AiRequestQueue = class extends import_obsidian5.Modal {
+  constructor(app, appName) {
+    super(app);
+    __publicField(this, "appName", appName);
+    __publicField(this, "pending", []);
+    __publicField(this, "active", null);
+    __publicField(this, "running", false);
+    __publicField(this, "opened", false);
+    __publicField(this, "nextId", 1);
+    __publicField(this, "timer", null);
+    __publicField(this, "lastCompletion", "");
+  }
+  onOpen() {
+    this.opened = true;
+    this.startTimer();
+    this.render();
+  }
+  onClose() {
+    this.opened = false;
+    if (this.timer !== null) window.clearInterval(this.timer);
+    this.timer = null;
+    this.contentEl.empty();
+  }
+  enqueue(label, submittedText, run) {
+    return new Promise((resolve) => {
+      const job = {
+        id: this.nextId++,
+        label,
+        submittedText,
+        queuedAt: Date.now(),
+        statusLabel: "Waiting",
+        run,
+        resolve
+      };
+      this.pending.push(job);
+      if (!this.opened) this.open();
+      this.render();
+      void this.drain();
+    });
+  }
+  startTimer() {
+    if (this.timer !== null) window.clearInterval(this.timer);
+    this.timer = window.setInterval(() => this.render(), 1e3);
+  }
+  async drain() {
+    if (this.running) return;
+    this.running = true;
+    try {
+      while (this.pending.length) {
+        const job = this.pending.shift();
+        this.active = job;
+        job.startedAt = Date.now();
+        job.statusLabel = "Preparing request";
+        this.render();
+        const report = (update) => {
+          var _a;
+          if (((_a = this.active) == null ? void 0 : _a.id) !== job.id) return;
+          if (update.label !== void 0) job.statusLabel = update.label;
+          if (update.submittedText !== void 0) job.submittedText = update.submittedText;
+          if (update.current !== void 0) job.current = update.current;
+          if (update.total !== void 0) job.total = update.total;
+          this.render();
+        };
+        try {
+          const value = await job.run(report);
+          const elapsed = Math.max(0, Math.floor((Date.now() - job.startedAt) / 1e3));
+          this.lastCompletion = `${job.label} completed in ${elapsed} second${elapsed === 1 ? "" : "s"}.`;
+          new import_obsidian5.Notice(`${this.appName}: ${this.lastCompletion}`, 4e3);
+          job.resolve({ status: "completed", value });
+        } catch (error) {
+          const elapsed = Math.max(0, Math.floor((Date.now() - job.startedAt) / 1e3));
+          const detail = error instanceof Error ? error.message : "Unknown error";
+          this.lastCompletion = `${job.label} failed after ${elapsed} second${elapsed === 1 ? "" : "s"}: ${detail}`;
+          new import_obsidian5.Notice(`${this.appName}: ${job.label} failed. ${detail}`, 6e3);
+          job.resolve({ status: "failed", error });
+        } finally {
+          this.active = null;
+          this.render();
+        }
+      }
+    } finally {
+      this.running = false;
+    }
+  }
+  clearWaiting() {
+    const removed = this.pending.splice(0);
+    for (const job of removed) job.resolve({ status: "cleared" });
+    if (removed.length) {
+      this.lastCompletion = `${removed.length} waiting AI request${removed.length === 1 ? " was" : "s were"} removed.`;
+      new import_obsidian5.Notice(`${this.appName}: cleared ${removed.length} waiting AI request${removed.length === 1 ? "" : "s"}.`, 4e3);
+      this.render();
+    }
+  }
+  render() {
+    var _a;
+    if (!this.opened) return;
+    const root = this.contentEl;
+    root.empty();
+    root.createEl("h2", { text: `${this.appName} AI request queue` });
+    if (this.active) {
+      const elapsed = Math.max(0, Math.floor((Date.now() - ((_a = this.active.startedAt) != null ? _a : Date.now())) / 1e3));
+      const active = root.createDiv();
+      active.createEl("h3", { text: `Processing: ${this.active.label}` });
+      active.createEl("p", { text: `${this.active.statusLabel} \xB7 ${elapsed} second${elapsed === 1 ? "" : "s"} elapsed${this.active.current && this.active.total ? ` \xB7 ${this.active.current}/${this.active.total}` : ""}` });
+      active.createEl("p", { text: "Text sent to AI (excerpt)" });
+      const excerpt = active.createEl("pre", { text: this.active.submittedText.trim().slice(0, 320) || "Preparing the text to send\u2026" });
+      excerpt.style.whiteSpace = "pre-wrap";
+      excerpt.style.maxHeight = "12em";
+      excerpt.style.overflow = "auto";
+    } else {
+      root.createEl("p", { text: "No AI request is processing." });
+    }
+    root.createEl("h3", { text: `Waiting (${this.pending.length})` });
+    if (!this.pending.length) root.createEl("p", { text: "The waiting queue is empty." });
+    for (const [index, job] of this.pending.entries()) {
+      const item = root.createDiv();
+      item.createEl("p", { text: `${index + 1}. ${job.label}` });
+      item.createEl("pre", { text: job.submittedText.trim().slice(0, 180) || "Text will be shown when this request starts." }).style.whiteSpace = "pre-wrap";
+    }
+    if (this.lastCompletion) root.createEl("p", { text: this.lastCompletion });
+    const footer = root.createDiv();
+    new import_obsidian5.ButtonComponent(footer).setButtonText("Clear waiting requests").setWarning().setDisabled(this.pending.length === 0).onClick(() => this.clearWaiting());
+    new import_obsidian5.ButtonComponent(footer).setButtonText("Close").onClick(() => this.close());
+    root.createEl("p", { text: "Clearing removes waiting requests. The active request will finish." }).style.color = "var(--text-muted)";
+  }
+};
+
 // src/main.ts
 var GENERATED_REPORT_FOLDER_NAME = "Torbert Reports";
 var TRANSFORMATION_CATEGORY_ORDER2 = [
@@ -1845,7 +1975,7 @@ function summarizeTextChange(before, after) {
   }
   return lines.join("\n");
 }
-var BatchPreviewModal = class extends import_obsidian5.Modal {
+var BatchPreviewModal = class extends import_obsidian6.Modal {
   constructor(app, _title, _items, onApply) {
     super(app);
     __publicField(this, "onApply", onApply);
@@ -1854,12 +1984,14 @@ var BatchPreviewModal = class extends import_obsidian5.Modal {
     this.onApply();
   }
 };
-var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
+var TorbertTextAiPlugin = class extends import_obsidian6.Plugin {
   constructor() {
     super(...arguments);
     __publicField(this, "support");
     __publicField(this, "settings");
     __publicField(this, "logger");
+    __publicField(this, "aiQueue");
+    __publicField(this, "queueReporter");
   }
   async onload() {
     this.support = new PluginSupport(this, { name: "Torbert Text AI", summary: "Transform, summarize, organize, and clean Markdown text.", quickStart: ["Sign in to billing in Settings.", "Select text or open a note.", "Choose a Torbert transformation; it applies automatically and can be undone."], commands: ["Open transformations", "Undo last operation", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Confirm the current note is Markdown and editable."] });
@@ -1868,6 +2000,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       const logFilePath = `${this.manifest.dir || "."}/plugin.log`;
       this.logger = new FileLogger(this.app.vault.adapter, logFilePath);
       await this.loadSettings();
+      this.aiQueue = new AiRequestQueue(this.app, "Torbert");
       if (!this.settings.constanceDeviceId) {
         const bytes = new Uint8Array(16);
         crypto.getRandomValues(bytes);
@@ -1898,14 +2031,15 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         }
       });
       this.registerTransformationCommands();
+      this.addCommand({ id: "show-ai-request-queue", name: "Show AI request queue", callback: () => this.aiQueue.open() });
       const addTransformationMenuItems = (menu, target) => {
         const showQuickBold = this.settings.showContextMenuSingle && this.settings.enabledTransformations.boldToHighlight;
         if (showQuickBold) {
           menu.addItem((item) => {
             item.setTitle("Torbert: Bold to Highlight").setIcon("wand").onClick(() => {
-              if (target instanceof import_obsidian5.TFolder) {
+              if (target instanceof import_obsidian6.TFolder) {
                 void this.applyTransformationToFolder(target, "boldToHighlight");
-              } else if (target instanceof import_obsidian5.TFile) {
+              } else if (target instanceof import_obsidian6.TFile) {
                 void this.applyTransformationToFile(target, "boldToHighlight");
               } else {
                 void this.applyTransformationToEditor(target, "boldToHighlight");
@@ -1923,8 +2057,8 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                 category,
                 enabledTransformations.filter(([, transformation]) => (transformation.category || "Text Cleanup") === category)
               ]).forEach(([category, transformationsForCategory]) => {
-                const hasFileActions = category === "AI" && (target instanceof import_obsidian5.TFile || target instanceof import_obsidian5.TFolder);
-                const hasFolderReports = category === "Markdown Notes" && target instanceof import_obsidian5.TFolder;
+                const hasFileActions = category === "AI" && (target instanceof import_obsidian6.TFile || target instanceof import_obsidian6.TFolder);
+                const hasFolderReports = category === "Markdown Notes" && target instanceof import_obsidian6.TFolder;
                 const hasRestoreAction = category === "Markdown Notes";
                 if (transformationsForCategory.length === 0 && !hasFileActions && !hasFolderReports && !hasRestoreAction) {
                   return;
@@ -1935,7 +2069,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                   if (hasFileActions) {
                     categoryMenu.addItem((submenuItem) => {
                       submenuItem.setTitle("Classify folder").onClick(() => {
-                        if (target instanceof import_obsidian5.TFolder) {
+                        if (target instanceof import_obsidian6.TFolder) {
                           void this.classifyFilesInFolder(target);
                         } else {
                           void this.classifyFile(target);
@@ -1946,9 +2080,9 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                   transformationsForCategory.forEach(([transformationId, transformation]) => {
                     categoryMenu.addItem((submenuItem) => {
                       submenuItem.setTitle(this.getTransformationMenuTitle(transformation)).onClick(() => {
-                        if (target instanceof import_obsidian5.TFolder) {
+                        if (target instanceof import_obsidian6.TFolder) {
                           void this.applyTransformationToFolder(target, transformationId);
-                        } else if (target instanceof import_obsidian5.TFile) {
+                        } else if (target instanceof import_obsidian6.TFile) {
                           void this.applyTransformationToFile(target, transformationId);
                         } else {
                           void this.applyTransformationToEditor(target, transformationId);
@@ -1956,7 +2090,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                       });
                     });
                   });
-                  if (category === "AI" && (target instanceof import_obsidian5.TFile || target instanceof import_obsidian5.TFolder)) {
+                  if (category === "AI" && (target instanceof import_obsidian6.TFile || target instanceof import_obsidian6.TFolder)) {
                     const presets = this.getCustomPromptPresets();
                     if (presets.length > 0) {
                       categoryMenu.addSeparator();
@@ -1966,7 +2100,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                         presets.forEach((preset) => {
                           presetMenu.addItem((submenuItem) => {
                             submenuItem.setTitle(preset.name).onClick(() => {
-                              if (target instanceof import_obsidian5.TFolder) {
+                              if (target instanceof import_obsidian6.TFolder) {
                                 void this.applyCustomPromptToFolder(target, preset);
                               } else {
                                 void this.applyCustomPromptToFile(target, preset);
@@ -1977,7 +2111,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                       });
                     }
                   }
-                  if (category === "Markdown Notes" && target instanceof import_obsidian5.TFolder) {
+                  if (category === "Markdown Notes" && target instanceof import_obsidian6.TFolder) {
                     categoryMenu.addItem((submenuItem) => {
                       submenuItem.setTitle("Find Weak Titles").onClick(() => {
                         void this.createWeakTitlesReport(target);
@@ -2004,9 +2138,9 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       };
       this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => addTransformationMenuItems(menu, editor)));
       this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
-        if (file instanceof import_obsidian5.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian6.TFile && file.extension === "md") {
           addTransformationMenuItems(menu, file);
-        } else if (file instanceof import_obsidian5.TFolder) {
+        } else if (file instanceof import_obsidian6.TFolder) {
           addTransformationMenuItems(menu, file);
         }
       }));
@@ -2014,7 +2148,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       this.logger.info("Plugin.onload", "Plugin has loaded successfully.");
     } catch (error) {
       console.error("Torbert Text AI failed to load:", error);
-      new import_obsidian5.Notice("Torbert Text AI could not load. Check the developer console.");
+      new import_obsidian6.Notice("Torbert Text AI could not load. Check the developer console.");
     }
   }
   /** Register every transformation in the command palette using category/name labels. */
@@ -2037,7 +2171,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       name: "AI / Classify current note folder",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
-        if (!(file instanceof import_obsidian5.TFile) || file.extension !== "md") {
+        if (!(file instanceof import_obsidian6.TFile) || file.extension !== "md") {
           return false;
         }
         if (!checking) {
@@ -2052,7 +2186,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       checkCallback: (checking) => {
         var _a;
         const folder = (_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.parent;
-        if (!(folder instanceof import_obsidian5.TFolder)) {
+        if (!(folder instanceof import_obsidian6.TFolder)) {
           return false;
         }
         if (!checking) {
@@ -2067,7 +2201,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       checkCallback: (checking) => {
         var _a;
         const folder = (_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.parent;
-        if (!(folder instanceof import_obsidian5.TFolder)) {
+        if (!(folder instanceof import_obsidian6.TFolder)) {
           return false;
         }
         if (!checking) {
@@ -2096,7 +2230,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       message.textContent = `${label} cancelled.`;
     };
     fragment.append(message, cancelButton);
-    const notice = new import_obsidian5.Notice(fragment, 0);
+    const notice = new import_obsidian6.Notice(fragment, 0);
     const update = () => {
       const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1e3));
       message.textContent = `${label}... ${elapsedSeconds} second(s) elapsed.`;
@@ -2116,6 +2250,17 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         notice.hide();
       }
     };
+  }
+  queueAiTask(label, submittedText, run) {
+    void this.aiQueue.enqueue(label, submittedText, async (report) => {
+      this.queueReporter = report;
+      report({ label: "Preparing AI request", submittedText });
+      try {
+        await run();
+      } finally {
+        this.queueReporter = void 0;
+      }
+    });
   }
   friendlyTransformationName(name) {
     return name.replace(/^AI /, "").replace(/^Remove AI /, "Remove ");
@@ -2142,7 +2287,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       return;
     }
     const message = `${label}. ${this.formatAiUsage(usage)}`;
-    new import_obsidian5.Notice(message, 3e3);
+    new import_obsidian6.Notice(message, 3e3);
     this.logger.info("AI usage", message, usage);
     if (usage.inputChars > 1e3) {
       const ratio = usage.inputChars > 0 ? usage.outputChars / usage.inputChars : 1;
@@ -2160,7 +2305,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
   async chargeCharacters(charCount) {
     const cost = Math.max(1, Math.ceil(charCount));
     if (!this.settings.billingAccessToken || !this.settings.billingAccountLinked) {
-      new import_obsidian5.Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
+      new import_obsidian6.Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
       return false;
     }
     const free = await claimAccountFreeUsage(this.settings, "torbert-text-ai-obsidian", this.settings.constanceDeviceId, `free_${generateEventId()}`, cost);
@@ -2173,16 +2318,16 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       this.settings.billingAccessToken = "";
       this.settings.billingAccountLinked = false;
       await this.saveSettings();
-      new import_obsidian5.Notice("Torbert: your billing session expired. Sign in again.");
+      new import_obsidian6.Notice("Torbert: your billing session expired. Sign in again.");
       return false;
     }
     if (free.kind === "error") {
-      new import_obsidian5.Notice("Torbert: the account allowance could not be verified. No AI request was sent.");
+      new import_obsidian6.Notice("Torbert: the account allowance could not be verified. No AI request was sent.");
       return false;
     }
     await retryPendingSpendEvents(this);
     if (this.settings.pendingSpendEvents.length > 0) {
-      new import_obsidian5.Notice("Torbert: a previous credit spend is still being reconciled. Please retry when the connection is restored.");
+      new import_obsidian6.Notice("Torbert: a previous credit spend is still being reconciled. Please retry when the connection is restored.");
       return false;
     }
     const stableEventId = generateEventId();
@@ -2199,21 +2344,21 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       this.settings.purchasedCharacters = 0;
       this.settings.pendingSpendEvents = this.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
       await this.saveSettings();
-      new import_obsidian5.Notice("Torbert: out of characters. Buy more in plugin settings (Buy $1 / $5 / $15 packs).");
+      new import_obsidian6.Notice("Torbert: out of characters. Buy more in plugin settings (Buy $1 / $5 / $15 packs).");
       return false;
     }
     this.logger.warn("chargeCharacters", "Credit spend status is unknown; blocking the AI call until the stable event is reconciled.");
-    new import_obsidian5.Notice("Torbert: billing could not be verified. Retry after the connection is restored.");
+    new import_obsidian6.Notice("Torbert: billing could not be verified. Retry after the connection is restored.");
     return false;
   }
   /** Preview and apply a transformation to the active editor or current selection. */
-  async applyTransformationToEditor(editor, transformationId) {
-    var _a;
+  async applyTransformationToEditor(editor, transformationId, queued = false) {
+    var _a, _b;
     let processingNotice = null;
     try {
       const targetEditor = editor || ((_a = this.app.workspace.activeEditor) == null ? void 0 : _a.editor);
       if (!targetEditor) {
-        new import_obsidian5.Notice("No active editor found.");
+        new import_obsidian6.Notice("No active editor found.");
         return;
       }
       const transformation = transformations[transformationId];
@@ -2222,10 +2367,15 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       }
       const selection = targetEditor.getSelection();
       if (transformation.requiresSelection && !selection) {
-        new import_obsidian5.Notice("This command requires a text selection.");
+        new import_obsidian6.Notice("This command requires a text selection.");
         return;
       }
       const textToTransform = selection || targetEditor.getValue();
+      if (transformation.requiresAi && !queued) {
+        this.queueAiTask(transformation.name, textToTransform, () => this.applyTransformationToEditor(editor, transformationId, true));
+        return;
+      }
+      if (transformation.requiresAi) (_b = this.queueReporter) == null ? void 0 : _b.call(this, { label: `Processing ${transformation.name}`, submittedText: textToTransform });
       if (transformation.requiresAi && !await checkCharactersAvailable(this, textToTransform.length)) return;
       processingNotice = this.startProcessingNotice(`Processing ${transformation.name}`);
       const abortSignal = processingNotice.abortSignal;
@@ -2244,7 +2394,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
               try {
                 const currentText = selection ? targetEditor.getSelection() : targetEditor.getValue();
                 if (currentText !== textToTransform) {
-                  new import_obsidian5.Notice("The text changed while the preview was open. Review the change again.");
+                  new import_obsidian6.Notice("The text changed while the preview was open. Review the change again.");
                   return;
                 }
                 if (transformation.requiresAi && !await this.chargeCharacters(textToTransform.length)) {
@@ -2256,12 +2406,12 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                 } else {
                   targetEditor.setValue(newText);
                 }
-                new import_obsidian5.Notice(noticeText);
+                new import_obsidian6.Notice(noticeText);
                 this.showAiUsage(transformation.name, usage);
                 this.logger.info("applyTransformationToEditor", `Applied '${transformationId}'. Notice: ${noticeText}`);
               } catch (error) {
                 this.logger.error("applyTransformationToEditor", `Failed to apply '${transformationId}' after preview`, error);
-                new import_obsidian5.Notice("Error applying the reviewed change. The original text was kept.");
+                new import_obsidian6.Notice("Error applying the reviewed change. The original text was kept.");
               }
             })();
           }
@@ -2271,7 +2421,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       if (newText !== textToTransform) {
         const currentText = selection ? targetEditor.getSelection() : targetEditor.getValue();
         if (currentText !== textToTransform) {
-          new import_obsidian5.Notice("The text changed while processing. Run the transformation again.");
+          new import_obsidian6.Notice("The text changed while processing. Run the transformation again.");
           return;
         }
         if (transformation.requiresAi && !await this.chargeCharacters(textToTransform.length)) return;
@@ -2283,19 +2433,20 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         targetEditor.setValue(newText);
       }
       if (!processingNotice.wasCancelled()) {
-        new import_obsidian5.Notice(noticeText);
+        new import_obsidian6.Notice(noticeText);
         this.showAiUsage(transformation.name, usage);
       }
       this.logger.info("applyTransformationToEditor", `Applied '${transformationId}'. Notice: ${noticeText}`);
     } catch (error) {
       this.logger.error("applyTransformationToEditor", `Failed to apply '${transformationId}'`, error);
-      new import_obsidian5.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : "Error applying transformation. Check developer console.");
+      new import_obsidian6.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : "Error applying transformation. Check developer console.");
     } finally {
       processingNotice == null ? void 0 : processingNotice.close();
     }
   }
   /** Preview and apply one transformation to a single Markdown file. */
-  async applyTransformationToFile(file, transformationId) {
+  async applyTransformationToFile(file, transformationId, queued = false) {
+    var _a;
     let processingNotice = null;
     try {
       const transformation = transformations[transformationId];
@@ -2303,6 +2454,11 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         return;
       }
       const fileContents = await this.app.vault.read(file);
+      if (transformation.requiresAi && !queued) {
+        this.queueAiTask(`${transformation.name} on ${file.name}`, fileContents, () => this.applyTransformationToFile(file, transformationId, true));
+        return;
+      }
+      if (transformation.requiresAi) (_a = this.queueReporter) == null ? void 0 : _a.call(this, { label: `Processing ${file.name}`, submittedText: fileContents });
       processingNotice = this.startProcessingNotice(`Processing ${file.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(fileContents, { settings: this.settings, abortSignal })));
@@ -2317,7 +2473,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
               try {
                 const currentContents = await this.app.vault.read(file);
                 if (currentContents !== fileContents) {
-                  new import_obsidian5.Notice(`The note changed while the preview was open. Review ${file.name} again.`);
+                  new import_obsidian6.Notice(`The note changed while the preview was open. Review ${file.name} again.`);
                   return;
                 }
                 if (transformation.requiresAi && !await this.chargeCharacters(fileContents.length)) {
@@ -2328,12 +2484,12 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
                   content: fileContents
                 }]);
                 await this.app.vault.modify(file, newText);
-                new import_obsidian5.Notice(`${noticeText} in ${file.name}`);
+                new import_obsidian6.Notice(`${noticeText} in ${file.name}`);
                 this.showAiUsage(`${transformation.name} on ${file.name}`, usage);
                 this.logger.info("applyTransformationToFile", `Applied '${transformationId}' to ${file.path}.`);
               } catch (error) {
                 this.logger.error("applyTransformationToFile", `Failed to apply '${transformationId}' after preview`, error);
-                new import_obsidian5.Notice(`Error applying the reviewed change to ${file.name}. The original text was kept.`);
+                new import_obsidian6.Notice(`Error applying the reviewed change to ${file.name}. The original text was kept.`);
               }
             })();
           }
@@ -2343,7 +2499,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       if (newText !== fileContents) {
         const currentContents = await this.app.vault.read(file);
         if (currentContents !== fileContents) {
-          new import_obsidian5.Notice(`The note changed while processing. Run ${transformation.name} again.`);
+          new import_obsidian6.Notice(`The note changed while processing. Run ${transformation.name} again.`);
           return;
         }
         if (transformation.requiresAi && !await this.chargeCharacters(fileContents.length)) return;
@@ -2351,28 +2507,33 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         await this.app.vault.modify(file, newText);
       }
       if (!processingNotice.wasCancelled()) {
-        new import_obsidian5.Notice(`${noticeText} in ${file.name}`);
+        new import_obsidian6.Notice(`${noticeText} in ${file.name}`);
         this.showAiUsage(`${transformation.name} on ${file.name}`, usage);
       }
       this.logger.info("applyTransformationToFile", `Applied '${transformationId}' to ${file.path}.`);
     } catch (error) {
       this.logger.error("applyTransformationToFile", `Failed to apply '${transformationId}' to file ${file.path}`, error);
-      new import_obsidian5.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : `Error processing file ${file.name}. Check developer console.`);
+      new import_obsidian6.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : `Error processing file ${file.name}. Check developer console.`);
     } finally {
       processingNotice == null ? void 0 : processingNotice.close();
     }
   }
   /** Preview a folder batch, then process files with cancellation and progress. */
-  async applyTransformationToFolder(folder, transformationId) {
-    var _a, _b;
+  async applyTransformationToFolder(folder, transformationId, queued = false) {
+    var _a, _b, _c, _d, _e;
     let processingNotice = null;
     try {
       const files = this.getMarkdownFilesInFolder(folder);
       if (files.length === 0) {
-        new import_obsidian5.Notice(`No Markdown files found in ${folder.name}.`);
+        new import_obsidian6.Notice(`No Markdown files found in ${folder.name}.`);
         return;
       }
-      processingNotice = this.startProcessingNotice(`Processing ${files.length} file(s) with ${((_a = transformations[transformationId]) == null ? void 0 : _a.name) || transformationId}`);
+      if (((_a = transformations[transformationId]) == null ? void 0 : _a.requiresAi) && !queued) {
+        this.queueAiTask(`${((_b = transformations[transformationId]) == null ? void 0 : _b.name) || transformationId} in ${folder.name}`, `Folder: ${folder.path}
+${files.length} Markdown file(s)`, () => this.applyTransformationToFolder(folder, transformationId, true));
+        return;
+      }
+      processingNotice = this.startProcessingNotice(`Processing ${files.length} file(s) with ${((_c = transformations[transformationId]) == null ? void 0 : _c.name) || transformationId}`);
       const snapshots = [];
       const pendingWrites = [];
       let processedCount = 0;
@@ -2385,6 +2546,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
             return;
           }
           const fileContents = await this.app.vault.read(file);
+          if (transformation.requiresAi) (_d = this.queueReporter) == null ? void 0 : _d.call(this, { label: `Processing ${file.name}`, submittedText: fileContents, current: processedCount + 1, total: files.length });
           if (transformation.requiresAi && !await this.chargeCharacters(fileContents.length)) {
             this.logger.info("applyTransformationToFolder", "Out of characters; stopped the batch.");
             break;
@@ -2411,18 +2573,18 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
           label: item.file.path,
           detail: summarizeTextChange(item.oldText, item.newText)
         }));
-        new BatchPreviewModal(this.app, `Review ${((_b = transformations[transformationId]) == null ? void 0 : _b.name) || transformationId}`, previewItems, () => {
+        new BatchPreviewModal(this.app, `Review ${((_e = transformations[transformationId]) == null ? void 0 : _e.name) || transformationId}`, previewItems, () => {
           void this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount);
         }).open();
         return;
       }
       if (pendingWrites.length > 0) await this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount);
       const failureText = failedCount > 0 ? ` ${failedCount} file(s) failed.` : "";
-      new import_obsidian5.Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
+      new import_obsidian6.Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
       this.logger.info("applyTransformationToFolder", `Applied '${transformationId}' to ${processedCount} file(s) in ${folder.path}. Failed: ${failedCount}.`);
     } catch (error) {
       this.logger.error("applyTransformationToFolder", `Failed to apply '${transformationId}' to folder ${folder.path}`, error);
-      new import_obsidian5.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : `Error processing folder ${folder.name}. Check developer console.`);
+      new import_obsidian6.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : `Error processing folder ${folder.name}. Check developer console.`);
     } finally {
       processingNotice == null ? void 0 : processingNotice.close();
     }
@@ -2455,10 +2617,10 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       }
       await this.createBatchReport(`Folder ${((_c = transformations[transformationId]) == null ? void 0 : _c.name) || transformationId}`, folder.path, reportItems);
       const failureText = failedCount > 0 ? ` ${failedCount} file(s) failed.` : "";
-      new import_obsidian5.Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
+      new import_obsidian6.Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
     } catch (error) {
       this.logger.error("applyPendingFolderWrites", `Cancelled or failed applying '${transformationId}' in ${folder.path}`, error);
-      new import_obsidian5.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying changes in ${folder.name}.`);
+      new import_obsidian6.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying changes in ${folder.name}.`);
     } finally {
       processingNotice.close();
     }
@@ -2468,10 +2630,10 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       return [];
     }
     return folder.children.flatMap((child) => {
-      if (child instanceof import_obsidian5.TFile) {
+      if (child instanceof import_obsidian6.TFile) {
         return child.extension === "md" ? [child] : [];
       }
-      if (child instanceof import_obsidian5.TFolder) {
+      if (child instanceof import_obsidian6.TFolder) {
         return this.getMarkdownFilesInFolder(child);
       }
       return [];
@@ -2484,12 +2646,18 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
   async classifyFilesInFolder(folder) {
     const files = this.getMarkdownFilesInFolder(folder);
     if (files.length === 0) {
-      new import_obsidian5.Notice(`No Markdown files found in ${folder.name}.`);
+      new import_obsidian6.Notice(`No Markdown files found in ${folder.name}.`);
       return;
     }
     await this.classifyFiles(files, folder.path);
   }
-  async classifyFiles(files, sourcePath) {
+  async classifyFiles(files, sourcePath, queued = false) {
+    var _a;
+    if (!queued) {
+      this.queueAiTask(`AI folder classification (${files.length} file${files.length === 1 ? "" : "s"})`, `Source: ${sourcePath || "current note"}
+${files.length} Markdown file(s)`, () => this.classifyFiles(files, sourcePath, true));
+      return;
+    }
     const processingNotice = this.startProcessingNotice(`Processing AI classification for ${files.length} file(s)`);
     const folderChoices = parseFolderList(this.settings.folderClassificationFolders);
     const movePlan = [];
@@ -2501,6 +2669,7 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         try {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
+          (_a = this.queueReporter) == null ? void 0 : _a.call(this, { label: `Classifying ${file.name}`, submittedText: fileContents, current: failedCount + 1, total: files.length });
           if (!await this.chargeCharacters(fileContents.length)) {
             this.logger.info("classifyFiles", "Out of characters; stopped the batch.");
             break;
@@ -2525,13 +2694,13 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
       }
     } catch (error) {
       this.logger.error("classifyFiles", `Cancelled or failed classification for ${sourcePath}`, error);
-      new import_obsidian5.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : "Error classifying files.");
+      new import_obsidian6.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : "Error classifying files.");
       return;
     } finally {
       processingNotice.close();
     }
     if (movePlan.length === 0) {
-      new import_obsidian5.Notice(`No classified moves suggested.${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
+      new import_obsidian6.Notice(`No classified moves suggested.${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
       return;
     }
     if (!this.settings.reviewBeforeApply) {
@@ -2568,10 +2737,10 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         }
       }
       await this.createBatchReport(label, sourcePath, reportItems);
-      new import_obsidian5.Notice(`Moved ${movedCount} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
+      new import_obsidian6.Notice(`Moved ${movedCount} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
     } catch (error) {
       this.logger.error("applyMovePlan", `Cancelled or failed move plan for ${sourcePath}`, error);
-      new import_obsidian5.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : "Error applying move plan.");
+      new import_obsidian6.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : "Error applying move plan.");
     } finally {
       processingNotice.close();
     }
@@ -2596,10 +2765,10 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
         items.length > 0 ? items.join("\n") : "No weak titles found."
       ].filter(Boolean).join("\n");
       const reportPath = await this.createReportNote(folder.path, "weak-titles", body);
-      new import_obsidian5.Notice(`Weak title report created: ${reportPath}`);
+      new import_obsidian6.Notice(`Weak title report created: ${reportPath}`);
     } catch (error) {
       this.logger.error("createWeakTitlesReport", `Failed to create report for ${folder.path}`, error);
-      new import_obsidian5.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error creating weak title report for ${folder.name}.`);
+      new import_obsidian6.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error creating weak title report for ${folder.name}.`);
     } finally {
       processingNotice.close();
     }
@@ -2633,18 +2802,25 @@ var TorbertTextAiPlugin = class extends import_obsidian5.Plugin {
 Failed files: ${failedCount}` : ""
       ].filter(Boolean).join("\n");
       const reportPath = await this.createReportNote(folder.path, "duplicate-note-detection", body);
-      new import_obsidian5.Notice(`Duplicate note report created: ${reportPath}`);
+      new import_obsidian6.Notice(`Duplicate note report created: ${reportPath}`);
     } catch (error) {
       this.logger.error("createDuplicateNotesReport", `Failed to create report for ${folder.path}`, error);
-      new import_obsidian5.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error creating duplicate note report for ${folder.name}.`);
+      new import_obsidian6.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error creating duplicate note report for ${folder.name}.`);
     } finally {
       processingNotice.close();
     }
   }
-  async applyCustomPromptToFile(file, preset) {
+  async applyCustomPromptToFile(file, preset, queued = false) {
+    var _a;
+    if (!queued) {
+      const contents = await this.app.vault.read(file);
+      this.queueAiTask(`Prompt ${preset.name} on ${file.name}`, contents, () => this.applyCustomPromptToFile(file, preset, true));
+      return;
+    }
     const processingNotice = this.startProcessingNotice(`Processing prompt for ${file.name}`);
     try {
       const fileContents = await this.app.vault.read(file);
+      (_a = this.queueReporter) == null ? void 0 : _a.call(this, { label: `Sending prompt for ${file.name}`, submittedText: fileContents });
       if (!await this.chargeCharacters(fileContents.length)) {
         return;
       }
@@ -2659,16 +2835,16 @@ Failed files: ${failedCount}` : ""
               try {
                 const currentContents = await this.app.vault.read(file);
                 if (currentContents !== fileContents) {
-                  new import_obsidian5.Notice(`The note changed while the preview was open. Review ${file.name} again.`);
+                  new import_obsidian6.Notice(`The note changed while the preview was open. Review ${file.name} again.`);
                   return;
                 }
                 await this.recordOperation(`Prompt: ${preset.name}`, [{ path: file.path, content: fileContents }]);
                 await this.app.vault.modify(file, newText);
-                new import_obsidian5.Notice(`Applied prompt preset to ${file.name}.`);
+                new import_obsidian6.Notice(`Applied prompt preset to ${file.name}.`);
                 this.showAiUsage(`Prompt ${preset.name} on ${file.name}`, usage);
               } catch (error) {
                 this.logger.error("applyCustomPromptToFile", `Failed prompt '${preset.name}' after preview`, error);
-                new import_obsidian5.Notice(`Error applying the reviewed change to ${file.name}. The original text was kept.`);
+                new import_obsidian6.Notice(`Error applying the reviewed change to ${file.name}. The original text was kept.`);
               }
             })();
           }
@@ -2678,24 +2854,31 @@ Failed files: ${failedCount}` : ""
       if (newText !== fileContents) {
         const currentContents = await this.app.vault.read(file);
         if (currentContents !== fileContents) {
-          new import_obsidian5.Notice(`The note changed while processing. Run the prompt again.`);
+          new import_obsidian6.Notice(`The note changed while processing. Run the prompt again.`);
           return;
         }
         await this.recordOperation(`Prompt: ${preset.name}`, [{ path: file.path, content: fileContents }]);
         await this.app.vault.modify(file, newText);
       }
       if (!processingNotice.wasCancelled()) {
-        new import_obsidian5.Notice(`Applied prompt preset to ${file.name}.`);
+        new import_obsidian6.Notice(`Applied prompt preset to ${file.name}.`);
         this.showAiUsage(`Prompt ${preset.name} on ${file.name}`, usage);
       }
     } catch (error) {
       this.logger.error("applyCustomPromptToFile", `Failed prompt '${preset.name}' on ${file.path}`, error);
-      new import_obsidian5.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying prompt preset to ${file.name}.`);
+      new import_obsidian6.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying prompt preset to ${file.name}.`);
     } finally {
       processingNotice.close();
     }
   }
-  async applyCustomPromptToFolder(folder, preset) {
+  async applyCustomPromptToFolder(folder, preset, queued = false) {
+    var _a;
+    if (!queued) {
+      const queuedFiles = this.getMarkdownFilesInFolder(folder);
+      this.queueAiTask(`Prompt ${preset.name} in ${folder.name}`, `Folder: ${folder.path}
+${queuedFiles.length} Markdown file(s)`, () => this.applyCustomPromptToFolder(folder, preset, true));
+      return;
+    }
     let processingNotice = null;
     const files = this.getMarkdownFilesInFolder(folder);
     const pendingWrites = [];
@@ -2707,6 +2890,7 @@ Failed files: ${failedCount}` : ""
         try {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
+          (_a = this.queueReporter) == null ? void 0 : _a.call(this, { label: `Sending prompt for ${file.name}`, submittedText: fileContents, current: pendingWrites.length + failedCount + 1, total: files.length });
           if (!await this.chargeCharacters(fileContents.length)) {
             this.logger.info("applyCustomPromptToFolder", "Out of characters; stopped the batch.");
             break;
@@ -2725,13 +2909,13 @@ Failed files: ${failedCount}` : ""
       }
     } catch (error) {
       this.logger.error("applyCustomPromptToFolder", `Cancelled or failed prompt '${preset.name}' in ${folder.path}`, error);
-      new import_obsidian5.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : `Error applying prompt preset in ${folder.name}.`);
+      new import_obsidian6.Notice((processingNotice == null ? void 0 : processingNotice.wasCancelled()) ? "Operation cancelled." : `Error applying prompt preset in ${folder.name}.`);
       return;
     } finally {
       processingNotice == null ? void 0 : processingNotice.close();
     }
     if (pendingWrites.length === 0) {
-      new import_obsidian5.Notice(`No prompt preset changes suggested.${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
+      new import_obsidian6.Notice(`No prompt preset changes suggested.${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
       return;
     }
     if (!this.settings.reviewBeforeApply) {
@@ -2767,10 +2951,10 @@ Failed files: ${failedCount}` : ""
         }
       }
       await this.createBatchReport(`Prompt ${preset.name}`, sourcePath, reportItems);
-      new import_obsidian5.Notice(`Applied prompt preset to ${pendingWrites.length} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
+      new import_obsidian6.Notice(`Applied prompt preset to ${pendingWrites.length} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
     } catch (error) {
       this.logger.error("applyCustomPromptFolderWrites", `Cancelled or failed applying prompt '${preset.name}' in ${sourcePath}`, error);
-      new import_obsidian5.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying prompt changes.`);
+      new import_obsidian6.Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying prompt changes.`);
     } finally {
       processingNotice.close();
     }
@@ -2780,7 +2964,7 @@ Failed files: ${failedCount}` : ""
     var _a;
     const lastOperation = this.settings.operationHistory[0];
     if (!lastOperation) {
-      new import_obsidian5.Notice("No Torbert Text AI changes to restore.");
+      new import_obsidian6.Notice("No Torbert Text AI changes to restore.");
       return;
     }
     const processingNotice = this.startProcessingNotice(`Restoring ${lastOperation.label}`);
@@ -2801,7 +2985,7 @@ Failed files: ${failedCount}` : ""
           }
           const currentPath = snapshot.currentPath || snapshot.path;
           const currentFile = this.app.vault.getAbstractFileByPath(currentPath);
-          if (currentFile instanceof import_obsidian5.TFile) {
+          if (currentFile instanceof import_obsidian6.TFile) {
             await this.app.vault.modify(currentFile, snapshot.content);
             if (snapshot.currentPath && snapshot.currentPath !== snapshot.path) {
               await this.app.vault.rename(currentFile, snapshot.path);
@@ -2810,7 +2994,7 @@ Failed files: ${failedCount}` : ""
             continue;
           }
           const originalFile = this.app.vault.getAbstractFileByPath(snapshot.path);
-          if (originalFile instanceof import_obsidian5.TFile) {
+          if (originalFile instanceof import_obsidian6.TFile) {
             await this.app.vault.modify(originalFile, snapshot.content);
             restoredCount++;
             continue;
@@ -2828,10 +3012,10 @@ Failed files: ${failedCount}` : ""
     if (failedCount === 0) {
       this.settings.operationHistory = this.settings.operationHistory.slice(1);
       await this.saveSettings();
-      new import_obsidian5.Notice(`Restored ${restoredCount} item(s) from ${lastOperation.label}.`);
+      new import_obsidian6.Notice(`Restored ${restoredCount} item(s) from ${lastOperation.label}.`);
       return;
     }
-    new import_obsidian5.Notice(`Restore incomplete: ${restoredCount} item(s) restored and ${failedCount} failed. The operation remains available to retry.`);
+    new import_obsidian6.Notice(`Restore incomplete: ${restoredCount} item(s) restored and ${failedCount} failed. The operation remains available to retry.`);
   }
   async recordEditorSnapshot(label, editor) {
     const activeFile = this.app.workspace.getActiveFile();
