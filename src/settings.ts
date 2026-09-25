@@ -45,4 +45,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   purchasedCharacters: 0,
   pendingSpendEvents: [],
   pendingCheckout: null,
+  reviewBeforeApply: false,
 };

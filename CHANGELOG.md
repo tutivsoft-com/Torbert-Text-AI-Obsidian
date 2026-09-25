@@ -1,5 +1,22 @@
 # Changelog
 
+## 5.8.27 (2026-09-26)
+
+- Synchronized the private publication source mirror with all canonical plugin modules so the public source review matches the built bundle. No plugin behavior changed.
+
+## 5.8.26 (2026-09-26)
+
+- Updated version metadata and raised the development-only esbuild dependency to 0.28.2 to resolve the low severity npm advisory. No plugin behavior changed.
+
+
+## 5.8.25 (2026-09-25)
+
+- Updated app version metadata.
+
+## 5.8.24 (2026-09-25)
+
+- Added privacy-safe, copyable session diagnostics in settings and the command palette, with command and runtime error logging.
+
 ## 5.8.23 (2026-09-25)
 
 - Synchronized version metadata and the packaged runtime across the source and public release repositories.
