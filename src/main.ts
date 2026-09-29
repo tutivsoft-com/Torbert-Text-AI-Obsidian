@@ -3,7 +3,7 @@ import { classifyFolderFromContent, collectAiUsageDuring, parseOpenAiApiKey, rew
 import { isWeakTitle, noteSimilarity, parseFolderList } from "./feature-utils";
 import { FileLogger } from "./logger";
 import { checkCharactersAvailable, generateEventId, retryPendingSpendEvents, resumePendingCheckout, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
-import { claimAccountFreeUsage } from "./constance-account";
+import { claimAccountFreeUsage, ensureBillingAccessToken, clearBillingSession } from "./constance-account";
 import { DEFAULT_SETTINGS } from "./settings";
 import { TorbertTextAiSettingTab } from "./settings-tab";
 import { transformations } from "./transformations";
@@ -452,17 +452,17 @@ export default class TorbertTextAiPlugin extends Plugin {
    */
   async chargeCharacters(charCount: number): Promise<boolean> {
     const cost = Math.max(1, Math.ceil(charCount));
-    if (!this.settings.billingAccessToken || !this.settings.billingAccountLinked) {
+    if (!this.settings.billingRefreshToken || !this.settings.billingAccountLinked) {
       new Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
       return false;
     }
-    const free = await claimAccountFreeUsage(this.settings, "torbert-text-ai-obsidian", this.settings.constanceDeviceId, `free_${generateEventId()}`, cost);
+    const free = await claimAccountFreeUsage({ state: this.settings, appId: "torbert-text-ai-obsidian", installationId: this.settings.constanceDeviceId, persist: () => this.saveSettings(), syncBalance: async () => {} }, "torbert-text-ai-obsidian", this.settings.constanceDeviceId, `free_${generateEventId()}`, cost);
     if (free.kind === "ok") {
       this.settings.freeCharacters = free.remaining;
       await this.saveSettings();
       return true;
     }
-    if (free.kind === "auth-required") { this.settings.billingAccessToken = ""; this.settings.billingAccountLinked = false; await this.saveSettings(); new Notice("Torbert: your billing session expired. Sign in again."); return false; }
+    if (free.kind === "auth-required") { await clearBillingSession({ state: this.settings, appId: "torbert-text-ai-obsidian", installationId: this.settings.constanceDeviceId, persist: () => this.saveSettings(), syncBalance: async () => {} }); new Notice("Torbert: your billing session expired. Sign in again."); return false; }
     if (free.kind === "error") { new Notice("Torbert: the account allowance could not be verified. No AI request was sent."); return false; }
 
     await retryPendingSpendEvents(this);
@@ -1367,7 +1367,9 @@ export default class TorbertTextAiPlugin extends Plugin {
     this.settings.constanceDeviceId = this.settings.constanceDeviceId || "";
     this.settings.billingEmail = this.settings.billingEmail || "";
     this.settings.billingAccessToken = typeof this.settings.billingAccessToken === "string" ? this.settings.billingAccessToken : "";
-    this.settings.billingAccountLinked = this.settings.billingAccountLinked === true && Boolean(this.settings.billingAccessToken);
+    this.settings.billingRefreshToken = typeof this.settings.billingRefreshToken === "string" ? this.settings.billingRefreshToken : "";
+    this.settings.billingTokenExpiresAt = Number(this.settings.billingTokenExpiresAt) || 0;
+    this.settings.billingAccountLinked = this.settings.billingAccountLinked === true && Boolean(this.settings.billingRefreshToken);
     // Free usage is account-scoped; discard any legacy local starter pool.
     this.settings.freeCharacters = 0;
     this.settings.purchasedCharacters = typeof this.settings.purchasedCharacters === "number" ? this.settings.purchasedCharacters : DEFAULT_SETTINGS.purchasedCharacters;

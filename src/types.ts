@@ -32,6 +32,8 @@ export interface PluginSettings {
   constanceDeviceId: string;
   billingEmail: string;
   billingAccessToken: string;
+  billingRefreshToken: string;
+  billingTokenExpiresAt: number;
   billingAccountLinked: boolean;
   freeCharacters: number;
   purchasedCharacters: number;

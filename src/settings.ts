@@ -40,6 +40,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   constanceDeviceId: "",
   billingEmail: "",
   billingAccessToken: "",
+  billingRefreshToken: "",
+  billingTokenExpiresAt: 0,
   billingAccountLinked: false,
   freeCharacters: 0,
   purchasedCharacters: 0,

@@ -1,3 +1,9 @@
+## 5.8.34 — Billing session and verification fixes
+
+- Persist and rotate refresh tokens before access expiry; clear and revoke the complete session on sign out.
+- Registration requiring verification stays pending and cannot link an installation.
+- Lock the signed-in email until sign out and expose central password recovery.
+
 # Release Notes
 
 

@@ -1,6 +1,6 @@
 import { Notice, requestUrl } from "obsidian";
 import type TorbertTextAiPlugin from "./main";
-import { spendAccountCredits } from "./constance-account";
+import { spendAccountCredits, ensureBillingAccessToken, clearBillingSession } from "./constance-account";
 
 const BASE_URL = "https://app.tutivsoft.com";
 // Distinct from the "torbert-text-ai" app_id used by the separate
@@ -8,6 +8,7 @@ const BASE_URL = "https://app.tutivsoft.com";
 // products collided on the same app_id in the Constance catalog, which broke
 // checkout for this plugin. See CONSTANCE_BILLING_ROLLOUT.md, 2026-08-20.
 const APP_ID = "torbert-text-ai-obsidian";
+const adapterFor = (plugin: TorbertTextAiPlugin) => ({ state: plugin.settings, appId: APP_ID, installationId: plugin.settings.constanceDeviceId, persist: () => plugin.saveSettings(), syncBalance: async () => {} });
 
 // One-time credit packs only (no subscriptions, no license keys). Balance
 // reads and spends require the authenticated Constance account session.
@@ -27,17 +28,18 @@ async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: s
   for (let attempt = 0; attempt < 12; attempt++) {
     await wait(5000);
     const pending = plugin.settings.pendingCheckout;
-    if (!pending || pending.checkoutId !== checkoutId || !plugin.settings.billingAccessToken) return;
+    if (!pending || pending.checkoutId !== checkoutId || !plugin.settings.billingRefreshToken) return;
     try {
+      const token = await ensureBillingAccessToken(adapterFor(plugin));
+      if (!token) return;
       const response = await requestUrl({
         url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(checkoutId)}`,
         method: "GET",
-        headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
         throw: false,
       });
       if (response.status === 401 || response.status === 403) {
-        plugin.settings.billingAccessToken = "";
-        plugin.settings.billingAccountLinked = false;
+        await clearBillingSession(adapterFor(plugin));
         plugin.settings.pendingCheckout = null;
         await plugin.saveSettings();
         return;
@@ -57,7 +59,7 @@ async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: s
 }
 
 async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" | "pro" | "ultimate"): Promise<void> {
-  if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+  if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) {
     new Notice("Sign in or create a billing account in Torbert settings before buying characters.");
     return;
   }
@@ -66,20 +68,21 @@ async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" |
     : { idempotencyKey: `checkout_${generateEventId()}`, planCode };
   plugin.settings.pendingCheckout = pending;
   await plugin.saveSettings();
+  const token = await ensureBillingAccessToken(adapterFor(plugin));
+  if (!token) { new Notice("Torbert: sign in again to buy characters."); return; }
   const response = await requestUrl({
     url: `${BASE_URL}/api/v1/billing/checkout`,
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${plugin.settings.billingAccessToken}`,
+      Authorization: `Bearer ${token}`,
       "Idempotency-Key": pending.idempotencyKey,
     },
     body: JSON.stringify({ app_id: APP_ID, plan_code: planCode, installation_id: plugin.settings.constanceDeviceId, quantity: 1 }),
     throw: false,
   });
   if (response.status === 401 || response.status === 403) {
-    plugin.settings.billingAccessToken = "";
-    plugin.settings.billingAccountLinked = false;
+    await clearBillingSession(adapterFor(plugin));
     plugin.settings.pendingCheckout = null;
     await plugin.saveSettings();
     new Notice("Torbert: your billing session expired. Sign in again.");
@@ -123,15 +126,16 @@ export function generateEventId(): string {
 }
 
 async function fetchConstanceEntitlements(plugin: TorbertTextAiPlugin): Promise<any> {
+  const token = await ensureBillingAccessToken(adapterFor(plugin));
+  if (!token) throw new Error("Billing session expired");
   const response = await requestUrl({
     url: `${BASE_URL}/api/v1/billing/entitlements/me?${new URLSearchParams({ app_id: APP_ID, installation_id: plugin.settings.constanceDeviceId }).toString()}`,
     method: "GET",
-    headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` },
+    headers: { Authorization: `Bearer ${token}` },
     throw: false,
   });
   if (response.status === 401 || response.status === 403 || response.status === 404) {
-    plugin.settings.billingAccessToken = "";
-    plugin.settings.billingAccountLinked = false;
+    await clearBillingSession(adapterFor(plugin));
     await plugin.saveSettings();
   }
   if (response.status < 200 || response.status >= 300) {
@@ -142,7 +146,7 @@ async function fetchConstanceEntitlements(plugin: TorbertTextAiPlugin): Promise<
 
 /** Verify free or purchased character eligibility before a billable AI call. */
 export async function checkCharactersAvailable(plugin: TorbertTextAiPlugin, amount: number): Promise<boolean> {
-  if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+  if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) {
     new Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
     return false;
   }
@@ -162,7 +166,7 @@ export async function checkCharactersAvailable(plugin: TorbertTextAiPlugin, amou
     new Notice("Torbert: not enough free or purchased characters. No AI request was sent.");
     return false;
   } catch {
-    if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) {
+    if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) {
       new Notice("Torbert: your billing session expired. Sign in again before running AI.");
     } else {
       new Notice("Torbert: billing could not be verified. No AI request was sent.");
@@ -177,8 +181,8 @@ export type SpendResult =
   | { kind: "error" };
 
 export async function spendConstanceCredits(plugin: TorbertTextAiPlugin, amount: number, stableEventId = generateEventId()): Promise<SpendResult> {
-  const result = await spendAccountCredits(plugin.settings, APP_ID, plugin.settings.constanceDeviceId, stableEventId, amount);
-  if (result.kind === "auth-required") { plugin.settings.billingAccessToken = ""; plugin.settings.billingAccountLinked = false; await plugin.saveSettings(); return { kind: "error" }; }
+  const result = await spendAccountCredits(adapterFor(plugin), APP_ID, plugin.settings.constanceDeviceId, stableEventId, amount);
+  if (result.kind === "auth-required") { await clearBillingSession(adapterFor(plugin)); return { kind: "error" }; }
   return result.kind === "ok" || result.kind === "insufficient" || result.kind === "error" ? result : { kind: "error" };
 }
 
@@ -197,7 +201,7 @@ export async function syncPurchasedCharactersFromConstance(plugin: TorbertTextAi
     return;
   }
   try {
-    if (!plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) return;
+    if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) return;
     const entitlement = await fetchConstanceEntitlements(plugin);
     const serverBalance = entitlement?.credits?.balance;
     plugin.settings.purchasedCharacters = Math.max(0, Number(serverBalance) || 0);
