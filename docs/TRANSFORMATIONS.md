@@ -1,6 +1,6 @@
 # Transformations Reference
 
-This document describes what each text command does, why it exists, and a sample input/output pair. The examples use the same behavior as `src/transformations.ts`.
+This reference is current for Torbert Text AI 5.8.32. It describes what each text command does, why it exists, and a sample input/output pair. The examples use the same behavior as `src/transformations.ts`; the 5.8.32 release updates account and credit controls without changing transformation behavior.
 
 ## General Rules
 

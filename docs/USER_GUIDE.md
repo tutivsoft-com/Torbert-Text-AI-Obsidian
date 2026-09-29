@@ -63,7 +63,7 @@ The AI request queue opens automatically when an AI action starts. It shows the 
 
 Torbert applies a user-initiated transformation without a second preview dialog. If a note changes during processing, Torbert keeps the newer text. Use **Restore last change** to undo the latest applied operation.
 
-AI actions use character-based credits. Settings show the balance, one-time packs, provider configuration, privacy explanation, and optional debug logging.
+Account and billing controls appear at the top of plugin settings. Register with an email and password, confirm the email link, then sign in. Settings keep balance refresh, sign-out, and one-time character packs together; metered AI actions report usage and the remaining balance. Provider configuration, privacy details, and optional debug logging remain available below.
 
 ## Safe workflow
 

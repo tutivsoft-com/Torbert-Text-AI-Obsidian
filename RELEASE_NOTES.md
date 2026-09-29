@@ -1,5 +1,13 @@
 # Release Notes
 
+
+## 5.8.32 — Account and credit clarity
+
+- Moved account and billing controls to the top of settings.
+- Simplified account controls to email, password, Register, Sign in, Sign out, balance refresh, and purchase buttons.
+- Registration now explains that the user must confirm the email link and then sign in.
+- Credit balances stay visible, and metered work reports usage and the remaining balance.
+
 ## 5.8.23 - 2026-09-25
 
 - Synchronized version metadata and the packaged runtime across the source and public release repositories.

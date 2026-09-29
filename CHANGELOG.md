@@ -1,5 +1,13 @@
 # Changelog
 
+
+## 5.8.32 — Account and credit clarity
+
+- Moved account and billing controls to the top of settings.
+- Simplified account controls to email, password, Register, Sign in, Sign out, balance refresh, and purchase buttons.
+- Registration now explains that the user must confirm the email link and then sign in.
+- Credit balances stay visible, and metered work reports usage and the remaining balance.
+
 ## 5.8.27 (2026-09-26)
 
 - Synchronized the private publication source mirror with all canonical plugin modules so the public source review matches the built bundle. No plugin behavior changed.
