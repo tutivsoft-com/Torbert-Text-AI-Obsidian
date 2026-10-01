@@ -72,8 +72,8 @@ The plugin source is in [`src/`](./src/), with [`src/main.ts`](./src/main.ts)
 as the entry point. The production bundle is generated from that source with
 esbuild. Release assets are `main.js`, `manifest.json`, and `styles.css`.
 
-GitHub release assets are attested by the repository workflow so their
-provenance can be verified independently.
+Verify downloaded release assets manually against their recorded SHA-256
+hashes. This repository does not run GitHub Actions to attest release assets.
 
 ## Release source
 
