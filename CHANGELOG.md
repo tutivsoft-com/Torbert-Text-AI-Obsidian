@@ -1,5 +1,10 @@
 ## 5.8.34 — Billing session and verification fixes
 
+## 5.8.37 (2026-10-02)
+
+- Show current one-time offers from Constance provider prices, joined to each app's native billing units by exact price ID; submit checkout with that ID and preserve pending checkout recovery.
+
+
 - Persist and rotate refresh tokens before access expiry; clear and revoke the complete session on sign out.
 - Registration requiring verification stays pending and cannot link an installation.
 - Lock the signed-in email until sign out and expose central password recovery.

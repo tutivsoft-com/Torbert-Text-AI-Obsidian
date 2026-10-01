@@ -1,181 +1,5 @@
+import { gatewayFor, managedText, codePoints } from "./preview-gateway";
 import type { PluginSettings } from "./types";
-
-// --- Pattern B remote key manifest (TutivSoft.OpenAiKeyManifest port) ---
-// Fetches this app's own encrypted OpenRouter key from a GitHub-hosted manifest as a
-// fallback when no manual "OpenRouter API key" setting is configured. Same algorithm as
-// the C# reference (desktop-app-Windows-Kest-LLM-Chat-AI/.../RemoteOpenAiKeyManifest.cs),
-// the verified Python port (tool-python-openrouter-manifest-crypto), and the earlier
-// Obsidian ports (Culebra, Denali AI Renamer): AES-256-GCM + PBKDF2-HMAC-SHA256, 210,000
-// iterations. The manual key setting always takes priority when set. Uses plain `fetch`
-// (not Obsidian's `requestUrl`) for consistency with this file's existing OpenRouter chat-
-// completions call and so this module stays free of an `obsidian` runtime import (keeps it
-// bundleable/testable standalone via tests/features.test.mjs, which externals "obsidian").
-const REMOTE_MANIFEST_PASSPHRASE = "Kivu.RemoteKeyManifest.v1.2026D";
-const REMOTE_MANIFEST_URL =
-  "https://raw.githubusercontent.com/tutivsoft-com/Resources/main/Torbert-Text-AI-Obsidian-public.txt";
-
-interface EncryptedSecretEnvelope {
-  q: number;
-  x: string;
-  w: string;
-  n: number;
-  a: string;
-  b: string;
-  c: string;
-  d: string;
-}
-
-interface RemoteKeySlot {
-  i: string;
-  ii?: string;
-  s: string;
-  v: EncryptedSecretEnvelope;
-}
-
-interface RemoteKeyManifest {
-  m: number;
-  n?: string; // next manifest URL (decoy-adjacent field, same shape as the live ai1.txt)
-  r: RemoteKeySlot[];
-}
-
-function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function decryptSecretEnvelope(envelope: EncryptedSecretEnvelope, passphrase: string): Promise<string> {
-  if (envelope.x !== "AES-256-GCM" || envelope.w !== "PBKDF2-HMAC-SHA256") {
-    throw new Error(`Unsupported manifest envelope algorithm/kdf: ${envelope.x} / ${envelope.w}`);
-  }
-
-  const keyMaterial = await window.crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(passphrase),
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"],
-  );
-
-  const key = await window.crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: base64ToBytes(envelope.a),
-      iterations: envelope.n,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["decrypt"],
-  );
-
-  const ciphertext = base64ToBytes(envelope.c);
-  const tag = base64ToBytes(envelope.d);
-  const ciphertextAndTag = new Uint8Array<ArrayBuffer>(new ArrayBuffer(ciphertext.length + tag.length));
-  ciphertextAndTag.set(ciphertext, 0);
-  ciphertextAndTag.set(tag, ciphertext.length);
-
-  const plaintext = await window.crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: base64ToBytes(envelope.b) },
-    key,
-    ciphertextAndTag,
-  );
-
-  return new TextDecoder().decode(plaintext);
-}
-
-function selectSlot(manifest: RemoteKeyManifest, wantState: "active" | "next"): RemoteKeySlot | null {
-  const byMarker = manifest.r.find((slot) => slot.ii === wantState);
-  if (byMarker) {
-    return byMarker;
-  }
-  // Fallback for manifests without the "ii" marker (matches the C# lib's
-  // ActiveKeyId/State-based selection): active = state "0", next = state "1".
-  const fallbackState = wantState === "active" ? "0" : "1";
-  return manifest.r.find((slot) => slot.s === fallbackState) ?? null;
-}
-
-async function fetchRemoteManifest(url: string): Promise<RemoteKeyManifest> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Manifest fetch failed: HTTP ${response.status}`);
-  }
-  return await response.json() as RemoteKeyManifest;
-}
-
-async function tryDecryptManifestKey(manifest: RemoteKeyManifest, source: string): Promise<string> {
-  const active = selectSlot(manifest, "active");
-  if (active) {
-    try {
-      const key = (await decryptSecretEnvelope(active.v, REMOTE_MANIFEST_PASSPHRASE)).trim();
-      if (key) return key;
-    } catch (error) {
-      console.warn("Torbert Text AI: active manifest slot failed to decrypt", source, error);
-    }
-  }
-
-  const next = selectSlot(manifest, "next");
-  if (next) {
-    try {
-      const key = (await decryptSecretEnvelope(next.v, REMOTE_MANIFEST_PASSPHRASE)).trim();
-      if (key) return key;
-    } catch (error) {
-      console.warn("Torbert Text AI: next manifest slot failed to decrypt", source, error);
-    }
-  }
-
-  throw new Error("Remote key manifest did not decrypt to a usable key.");
-}
-
-// Cached once resolved so every AI call doesn't re-fetch the manifest; cleared implicitly
-// on plugin reload (module-level state) in case the key was rotated mid-session.
-let remoteApiKeyCache: string | null = null;
-
-/**
- * Fetches and decrypts this app's own OpenRouter key from its GitHub manifest,
- * falling back to the manifest's NextManifestUrl if the primary one is
- * unreachable or fails to decrypt (key rotation / relocation support).
- */
-async function fetchRemoteApiKey(): Promise<string> {
-  if (remoteApiKeyCache) {
-    return remoteApiKeyCache;
-  }
-
-  try {
-    const manifest = await fetchRemoteManifest(REMOTE_MANIFEST_URL);
-    const key = await tryDecryptManifestKey(manifest, REMOTE_MANIFEST_URL);
-    remoteApiKeyCache = key;
-    return key;
-  } catch (primaryError) {
-    console.warn("Torbert Text AI: primary manifest failed, trying next-manifest fallback", primaryError);
-    const primaryManifest = await fetchRemoteManifest(REMOTE_MANIFEST_URL).catch(() => null);
-    const nextUrl = primaryManifest?.n;
-    if (nextUrl && nextUrl !== REMOTE_MANIFEST_URL) {
-      const nextManifest = await fetchRemoteManifest(nextUrl);
-      const key = await tryDecryptManifestKey(nextManifest, nextUrl);
-      remoteApiKeyCache = key;
-      return key;
-    }
-    throw primaryError;
-  }
-}
-
-/**
- * Resolves the OpenRouter API key to use: the manually-configured setting always wins
- * when set, otherwise falls back to this app's own remote key manifest.
- */
-async function resolveApiKey(settings: PluginSettings): Promise<string> {
-  const manualKey = parseOpenAiApiKey(settings.openAiApiKey);
-  if (manualKey) {
-    return manualKey;
-  }
-
-  return fetchRemoteApiKey();
-}
 
 interface OpenAiTextContent {
   type: string;
@@ -273,66 +97,17 @@ export async function rewriteWithOpenAi(settings: PluginSettings, instruction: s
   ].join(" "), instruction, text, abortSignal, getLargeContentModelOverride(settings));
 }
 
-export async function highlightReadingKeywordsWithOpenAi(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
-  return requestFullTextEdit(settings, [
-    "You add Obsidian highlights to make Markdown easier to skim.",
-    "Return the full Markdown text with only ==highlight== markup added.",
-    "Do not rewrite, remove, reorder, summarize, translate, or add words.",
-    "For each eligible line, highlight the few words that let someone understand the line by reading only highlights.",
-    "Highlight at most 5 keywords or short phrases per line.",
-    "If a line has fewer than 20 words, highlight at most 3 keywords or short phrases.",
-    "Do not touch headings, tables, code fences, blank lines, link-reference lines, lines that are only a few words, or lines that already contain highlights.",
-    "Do not highlight entire lines.",
-  ].join(" "), "Add only ==highlight== markup to the text.", text, abortSignal, getLargeContentModelOverride(settings), "TEXT TO HIGHLIGHT");
+export async function highlightReadingKeywordsWithOpenAi(settings:PluginSettings,text:string,abortSignal?:AbortSignal):Promise<string>{
+ if(abortSignal?.aborted)throw new Error("Operation cancelled.");return managedText(gatewayFor(settings),text,"highlight",{input_characters:codePoints(text)});
 }
-
-export async function generateSummaryFromContent(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
-  return requestOpenAiText(settings, [
-    "You summarize Markdown notes for Obsidian.",
-    "Return only a concise plain-text summary.",
-    "Use one to three sentences.",
-    "Preserve important names, dates, decisions, and next actions.",
-    "Do not wrap the result in quotes or code fences.",
-  ].join(" "), [
-    "Create a short summary from this sampled note content.",
-    "",
-    buildThreePartSample(text),
-  ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " "));
+export async function generateSummaryFromContent(settings:PluginSettings,text:string,abortSignal?:AbortSignal):Promise<string>{
+ if(abortSignal?.aborted)throw new Error("Operation cancelled.");const input=text;return managedText(gatewayFor(settings),input,"summarize",{input_characters:codePoints(input)}).then(s=>s.trim().replace(/\s+/g," "));
 }
-
-export async function generateDelimitedSummaryPrefix(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
-  return requestOpenAiText(settings, [
-    "You create searchable one-line summary prefixes for Markdown notes.",
-    "Return only the summary prefix text.",
-    "Use 4 to 14 words.",
-    "Prefer important names, places, organizations, dates, topics, and identifiers from the note.",
-    "Use title-style plain text, not Markdown.",
-    "Do not include the delimiter :-:.",
-    "Do not wrap the result in quotes or code fences.",
-  ].join(" "), [
-    "Create a short prefix from this sampled note content.",
-    "",
-    buildThreePartSample(text),
-  ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " ").replace(/:-:/g, "").trim());
+export async function generateDelimitedSummaryPrefix(settings:PluginSettings,text:string,abortSignal?:AbortSignal):Promise<string>{
+ if(abortSignal?.aborted)throw new Error("Operation cancelled.");const input=text;return managedText(gatewayFor(settings),input,"summary-prefix",{input_characters:codePoints(input)}).then(s=>s.trim().replace(/\s+/g," ").replace(/:-:/g,"").trim());
 }
-
-export async function classifyFolderFromContent(settings: PluginSettings, folders: string[], text: string, abortSignal?: AbortSignal): Promise<string> {
-  const folderList = folders.length > 0 ? folders : ["Jobs", "Clients", "DevOps", "Finance"];
-  const rawFolder = await requestOpenAiText(settings, [
-    "You classify Obsidian notes into one folder.",
-    "Return only one folder name from the allowed folder list.",
-    "Do not include explanation, YAML, quotes, slashes, or code fences.",
-  ].join(" "), [
-    `Allowed folders: ${folderList.join(", ")}`,
-    "",
-    "Choose the best folder for this sampled note content.",
-    "",
-    buildThreePartSample(text),
-  ].join("\n"), undefined, abortSignal);
-  const normalized = sanitizeFolderName(rawFolder);
-  const exactMatch = folderList.find((folder) => folder.toLowerCase() === normalized.toLowerCase());
-
-  return exactMatch || folderList[0];
+export async function classifyFolderFromContent(settings:PluginSettings,folders:string[],text:string,abortSignal?:AbortSignal):Promise<string>{
+ if(abortSignal?.aborted)throw new Error("Operation cancelled.");const folderList=folders.length?folders:["Jobs","Clients","DevOps","Finance"],input=text;const raw=await managedText(gatewayFor(settings),input,"classify",{input_characters:codePoints(input),allowed_folders:folderList});const normalized=sanitizeFolderName(raw);return folderList.find(folder=>folder.toLowerCase()===normalized.toLowerCase())||folderList[0];
 }
 
 export function buildThreePartSample(text: string, maxCharacters = 5000): string {
@@ -414,42 +189,9 @@ async function requestFullTextEdit(
   modelOverride?: string,
   label = "TEXT TO EDIT",
 ): Promise<string> {
-  const chunks = splitTextForAi(text, FULL_TEXT_CHUNK_CHAR_LIMIT);
-
-  if (chunks.length === 1) {
-    return requestOpenAiText(
-      settings,
-      `${baseInstructions} Return only the complete revised text for the provided input. Do not add any prefix, suffix, commentary, chunk marker, or explanation.`,
-      `${userInstruction}\n\n${label}:\n${text}`,
-      modelOverride,
-      abortSignal,
-    );
-  }
-
-  const outputs: string[] = [];
-  for (let index = 0; index < chunks.length; index++) {
-    const chunk = chunks[index];
-    const previousContext = chunks[index - 1]?.slice(-FULL_TEXT_CONTEXT_CHAR_LIMIT) || "";
-    const nextContext = chunks[index + 1]?.slice(0, FULL_TEXT_CONTEXT_CHAR_LIMIT) || "";
-    const chunkInstructions = [
-      baseInstructions,
-      `You are editing chunk ${index + 1} of ${chunks.length} from one Markdown file.`,
-      "Use the read-only neighboring context only to understand continuity.",
-      "Return only the revised text for this chunk.",
-      "Do not return the read-only context.",
-      "Do not add headings, separators, code fences, explanations, or chunk markers.",
-      "Preserve the chunk's leading and trailing newlines exactly unless the requested edit requires changing those characters.",
-    ].join(" ");
-    outputs.push(await requestOpenAiText(
-      settings,
-      chunkInstructions,
-      buildChunkPrompt(userInstruction, label, chunk, index + 1, chunks.length, previousContext, nextContext),
-      modelOverride,
-      abortSignal,
-    ));
-  }
-
-  return outputs.join("");
+  if(abortSignal?.aborted)throw new Error("Operation cancelled.");
+  // One immutable job: Constance chooses the bounded model and system prompt.
+  return managedText(gatewayFor(settings),text,"transform",{input_characters:codePoints(text),instructions:userInstruction});
 }
 
 function buildChunkPrompt(userInstruction: string, label: string, chunk: string, index: number, total: number, previousContext: string, nextContext: string): string {
@@ -511,57 +253,11 @@ function findLastSoftBreakInsideLongLine(text: string, start: number, end: numbe
 }
 
 async function requestOpenAiResponsesText(settings: PluginSettings, instructions: string, input: string, modelOverride: string | undefined, signal: AbortSignal): Promise<string> {
-  let apiKey: string;
-  try {
-    apiKey = await resolveApiKey(settings);
-  } catch (error) {
-    console.error("Torbert Text AI: failed to resolve an OpenRouter API key", error);
-    throw new Error("Torbert AI is temporarily unavailable. Check your connection and try again.");
-  }
-
-  if (!apiKey) {
-    throw new Error("OpenAI API key is not configured.");
-  }
-
-  const model = modelOverride?.trim() || settings.openAiModel.trim() || "~deepseek/deepseek-v4-flash-latest";
-  const response = await fetch(`${normalizeBaseUrl(settings.openAiApiBase || "https://openrouter.ai/api/v1")}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    signal,
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: instructions },
-        { role: "user", content: input },
-      ],
-      max_tokens: estimateMaxCompletionTokens(input),
-      temperature: 0,
-    }),
-  });
-
-  const data = await readOpenAiResponse(response);
-
-  if (!response.ok) {
-    throw new Error(data.error?.message || `OpenAI request failed with ${response.status}.`);
-  }
-
-  const outputText = data.choices?.[0]?.message?.content
-    || data.output_text
-    || data.output
-      ?.flatMap((item) => item.content || [])
-      .filter((content) => content.type === "output_text" && typeof content.text === "string")
-      .map((content) => content.text)
-      .join("");
-
-  if (!outputText) {
-    throw new Error("OpenRouter response did not include text output.");
-  }
-
-  recordAiUsage("openrouter", model, input, instructions, outputText, data.usage);
-  return outputText;
+  if(signal.aborted)throw new Error("Operation cancelled.");
+  const output=await managedText(gatewayFor(settings),input,"transform",{input_characters:codePoints(input),instructions});
+  if(signal.aborted)throw new Error("Operation cancelled after reveal; the same result is preserved without another charge.");
+  recordAiUsage("openrouter","managed",input,instructions,output);
+  return output;
 }
 
 function recordAiUsage(provider: "openrouter", model: string, input: string, instructions: string, output: string, usage?: TokenUsage): void {

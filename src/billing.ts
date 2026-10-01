@@ -40,7 +40,6 @@ async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: s
       });
       if (response.status === 401 || response.status === 403) {
         await clearBillingSession(adapterFor(plugin));
-        plugin.settings.pendingCheckout = null;
         await plugin.saveSettings();
         return;
       }
@@ -58,11 +57,12 @@ async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: s
   }
 }
 
-async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" | "pro" | "ultimate"): Promise<void> {
+async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" | "pro" | "ultimate", openBrowser = true): Promise<void> {
   if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) {
     new Notice("Sign in or create a billing account in Torbert settings before buying characters.");
     return;
   }
+  if (plugin.settings.pendingCheckout && plugin.settings.pendingCheckout.planCode !== planCode) { new Notice("A purchase is pending. Wait for its status before starting another."); return; }
   const pending = plugin.settings.pendingCheckout?.planCode === planCode
     ? plugin.settings.pendingCheckout
     : { idempotencyKey: `checkout_${generateEventId()}`, planCode };
@@ -83,7 +83,6 @@ async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" |
   });
   if (response.status === 401 || response.status === 403) {
     await clearBillingSession(adapterFor(plugin));
-    plugin.settings.pendingCheckout = null;
     await plugin.saveSettings();
     new Notice("Torbert: your billing session expired. Sign in again.");
     return;
@@ -101,7 +100,7 @@ async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" |
   }
   plugin.settings.pendingCheckout = { ...pending, checkoutId };
   await plugin.saveSettings();
-  window.open(checkoutUrl, "_blank");
+  if (openBrowser) window.open(checkoutUrl, "_blank", "noopener");
   void pollCheckoutSettlement(plugin, checkoutId);
 }
 
@@ -109,7 +108,7 @@ export function resumePendingCheckout(plugin: TorbertTextAiPlugin): void {
   const pending = plugin.settings.pendingCheckout;
   if (!pending) return;
   if (pending.checkoutId) void pollCheckoutSettlement(plugin, pending.checkoutId);
-  else void startCheckout(plugin, pending.planCode as "standard" | "pro" | "ultimate");
+  else void startCheckout(plugin, pending.planCode as "standard" | "pro" | "ultimate", false);
 }
 
 export function openCheckout(plugin: TorbertTextAiPlugin, tier: TorbertPackKey): void {
@@ -196,17 +195,20 @@ export async function retryPendingSpendEvents(plugin: TorbertTextAiPlugin): Prom
   }
 }
 
-export async function syncPurchasedCharactersFromConstance(plugin: TorbertTextAiPlugin): Promise<void> {
+export async function syncPurchasedCharactersFromConstance(plugin: TorbertTextAiPlugin, manual = false): Promise<void> {
   if (!plugin.settings.constanceDeviceId) {
     return;
   }
   try {
-    if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) return;
+    if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) { if (manual) throw new Error("Connect your billing account before refreshing credits."); return; }
     const entitlement = await fetchConstanceEntitlements(plugin);
     const serverBalance = entitlement?.credits?.balance;
+    if (!Number.isFinite(serverBalance)) throw new Error("Billing returned an invalid balance");
+    plugin.settings.freeCharacters = Math.max(0, Number(entitlement?.free_usage?.remaining) || 0);
     plugin.settings.purchasedCharacters = Math.max(0, Number(serverBalance) || 0);
     await plugin.saveSettings();
   } catch (error) {
+    if (manual) throw error;
     console.error("Torbert: Constance entitlement sync failed", error);
   }
 }

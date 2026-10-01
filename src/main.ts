@@ -1,3 +1,4 @@
+import { configureGateway, gatewayFor, managedText, addLivePacks, codePoints, authorizeLocalReveal } from "./preview-gateway";
 import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu, type MenuItem } from "obsidian";
 import { classifyFolderFromContent, collectAiUsageDuring, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
 import { isWeakTitle, noteSimilarity, parseFolderList } from "./feature-utils";
@@ -111,6 +112,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       const pendingCheckout = this.settings.pendingCheckout;
       this.settings.pendingCheckout = pendingCheckout && typeof pendingCheckout.idempotencyKey === "string" && typeof pendingCheckout.planCode === "string" ? pendingCheckout : null;
       await this.saveSettings();
+      configureGateway(this.settings,{app:this.app,appId:"torbert-text-ai-obsidian",installationId:this.settings.constanceDeviceId,state:this.settings,persist:()=>this.saveSettings()});
       this.logger.setEnabled(this.settings.enableLogging);
       this.logger.info("Plugin.onload", "Plugin is loading.");
 
@@ -450,6 +452,8 @@ export default class TorbertTextAiPlugin extends Plugin {
    * (and shows a Notice) when authentication, balance, or spend verification
    * is unavailable. AI work never proceeds without an authoritative charge.
    */
+  private async authorizedRevealAlreadyCommitted(_charCount: number): Promise<boolean> { return true; }
+
   async chargeCharacters(charCount: number): Promise<boolean> {
     const cost = Math.max(1, Math.ceil(charCount));
     if (!this.settings.billingRefreshToken || !this.settings.billingAccountLinked) {
@@ -484,7 +488,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.settings.purchasedCharacters = 0;
       this.settings.pendingSpendEvents = this.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
       await this.saveSettings();
-      new Notice("Torbert: out of characters. Buy more in plugin settings (Buy $1 / $5 / $15 packs).");
+      new Notice("Torbert: out of characters. Review current one-time offers in plugin settings.");
       return false;
     }
 
@@ -523,11 +527,11 @@ export default class TorbertTextAiPlugin extends Plugin {
         return;
       }
       if (transformation.requiresAi) this.queueReporter?.({ label: `Processing ${transformation.name}`, submittedText: textToTransform });
-      if (transformation.requiresAi && !(await checkCharactersAvailable(this, textToTransform.length))) return;
       processingNotice = this.startProcessingNotice(`Processing ${transformation.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(textToTransform, { settings: this.settings, abortSignal })));
-      const { newText, noticeText } = transformationResult;
+      let { newText, noticeText } = transformationResult;
+      if (!transformation.requiresAi && newText !== textToTransform) newText=await authorizeLocalReveal(gatewayFor(this.settings),textToTransform,newText,{input_characters:codePoints(textToTransform)});
 
       if (newText !== textToTransform && this.settings.reviewBeforeApply) {
         new BatchPreviewModal(
@@ -545,7 +549,7 @@ export default class TorbertTextAiPlugin extends Plugin {
                   new Notice("The text changed while the preview was open. Review the change again.");
                   return;
                 }
-                if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) {
+                if (transformation.requiresAi && !(await this.authorizedRevealAlreadyCommitted(textToTransform.length))) {
                   return;
                 }
                 await this.recordEditorSnapshot(`Editor: ${transformation.name}`, targetEditor);
@@ -570,7 +574,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       if (newText !== textToTransform) {
         const currentText = selection ? targetEditor.getSelection() : targetEditor.getValue();
         if (currentText !== textToTransform) { new Notice("The text changed while processing. Run the transformation again."); return; }
-        if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) return;
+        if (transformation.requiresAi && !(await this.authorizedRevealAlreadyCommitted(textToTransform.length))) return;
         await this.recordEditorSnapshot(`Editor: ${transformation.name}`, targetEditor);
       }
       if (selection) {
@@ -611,7 +615,8 @@ export default class TorbertTextAiPlugin extends Plugin {
       processingNotice = this.startProcessingNotice(`Processing ${file.name}`);
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(fileContents, { settings: this.settings, abortSignal })));
-      const { newText, noticeText } = transformationResult;
+      let { newText, noticeText } = transformationResult;
+      if (!transformation.requiresAi && newText !== fileContents) newText=await authorizeLocalReveal(gatewayFor(this.settings),fileContents,newText,{input_characters:codePoints(fileContents)});
 
       if (newText !== fileContents && this.settings.reviewBeforeApply) {
         new BatchPreviewModal(
@@ -626,7 +631,7 @@ export default class TorbertTextAiPlugin extends Plugin {
                   new Notice(`The note changed while the preview was open. Review ${file.name} again.`);
                   return;
                 }
-                if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) {
+                if (transformation.requiresAi && !(await this.authorizedRevealAlreadyCommitted(fileContents.length))) {
                   return;
                 }
                 await this.recordOperation(`File: ${transformation.name}`, [{
@@ -650,7 +655,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       if (newText !== fileContents) {
         const currentContents = await this.app.vault.read(file);
         if (currentContents !== fileContents) { new Notice(`The note changed while processing. Run ${transformation.name} again.`); return; }
-        if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) return;
+        if (transformation.requiresAi && !(await this.authorizedRevealAlreadyCommitted(fileContents.length))) return;
         await this.recordOperation(`File: ${transformation.name}`, [{ path: file.path, content: fileContents }]);
         await this.app.vault.modify(file, newText);
       }
@@ -701,14 +706,15 @@ export default class TorbertTextAiPlugin extends Plugin {
 
           const fileContents = await this.app.vault.read(file);
           if (transformation.requiresAi) this.queueReporter?.({ label: `Processing ${file.name}`, submittedText: fileContents, current: processedCount + 1, total: files.length });
-          if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) {
+          if (transformation.requiresAi && !(await this.authorizedRevealAlreadyCommitted(fileContents.length))) {
             this.logger.info("applyTransformationToFolder", "Out of characters; stopped the batch.");
             break;
           }
 
           const abortSignal = processingNotice.abortSignal;
           const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(fileContents, { settings: this.settings, abortSignal })));
-          const { newText } = transformationResult;
+          let { newText } = transformationResult;
+          if (!transformation.requiresAi && newText !== fileContents) newText=await authorizeLocalReveal(gatewayFor(this.settings),fileContents,newText,{input_characters:codePoints(fileContents)});
           this.showAiUsage(`${transformation.name} on ${file.name}`, usage);
 
           if (newText !== fileContents) {
@@ -848,7 +854,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
           this.queueReporter?.({ label: `Classifying ${file.name}`, submittedText: fileContents, current: failedCount + 1, total: files.length });
-          if (!(await this.chargeCharacters(fileContents.length))) {
+          if (!(await this.authorizedRevealAlreadyCommitted(fileContents.length))) {
             this.logger.info("classifyFiles", "Out of characters; stopped the batch.");
             break;
           }
@@ -1016,7 +1022,7 @@ export default class TorbertTextAiPlugin extends Plugin {
     try {
       const fileContents = await this.app.vault.read(file);
       this.queueReporter?.({ label: `Sending prompt for ${file.name}`, submittedText: fileContents });
-      if (!(await this.chargeCharacters(fileContents.length))) {
+      if (!(await this.authorizedRevealAlreadyCommitted(fileContents.length))) {
         return;
       }
       const { result: newText, usage } = await collectAiUsageDuring(() => rewriteWithOpenAi(this.settings, preset.prompt, fileContents, processingNotice.abortSignal));
@@ -1086,7 +1092,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           processingNotice.throwIfCancelled();
           const fileContents = await this.app.vault.read(file);
           this.queueReporter?.({ label: `Sending prompt for ${file.name}`, submittedText: fileContents, current: pendingWrites.length + failedCount + 1, total: files.length });
-          if (!(await this.chargeCharacters(fileContents.length))) {
+          if (!(await this.authorizedRevealAlreadyCommitted(fileContents.length))) {
             this.logger.info("applyCustomPromptToFolder", "Out of characters; stopped the batch.");
             break;
           }
@@ -1331,6 +1337,8 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   private async createReportNote(sourcePath: string, slug: string, content: string): Promise<string> {
+    if(!this.settings.billingAccountLinked || !this.settings.billingAccessToken) throw new Error("Sign in and verify before writing a report. No note was created.");
+    if(slug !== "torbert-batch-report") await authorizeLocalReveal(gatewayFor(this.settings),content,content,{input_characters:codePoints(content)});
     const reportsFolder = sourcePath && sourcePath !== "/" ? `${sourcePath}/Torbert Reports` : "Torbert Reports";
     await this.ensureFolderPath(reportsFolder);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -1350,6 +1358,7 @@ export default class TorbertTextAiPlugin extends Plugin {
     const loadedSettings = await this.loadData();
 
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
+    this.settings.settingsMode = this.settings.settingsMode === "advanced" ? "advanced" : "simple";
     if (loadedSettings?.enabledTransformations) {
       this.settings.enabledTransformations = Object.assign(
         {},
@@ -1363,7 +1372,7 @@ export default class TorbertTextAiPlugin extends Plugin {
     this.settings.customPromptPresets = this.settings.customPromptPresets || DEFAULT_SETTINGS.customPromptPresets;
     this.settings.folderClassificationFolders = this.settings.folderClassificationFolders || DEFAULT_SETTINGS.folderClassificationFolders;
     this.settings.largeContentOpenAiModel = this.settings.largeContentOpenAiModel || DEFAULT_SETTINGS.largeContentOpenAiModel;
-    this.settings.openAiApiBase = this.settings.openAiApiBase || DEFAULT_SETTINGS.openAiApiBase;
+    this.settings.openAiApiBase = DEFAULT_SETTINGS.openAiApiBase;
     this.settings.constanceDeviceId = this.settings.constanceDeviceId || "";
     this.settings.billingEmail = this.settings.billingEmail || "";
     this.settings.billingAccessToken = typeof this.settings.billingAccessToken === "string" ? this.settings.billingAccessToken : "";
