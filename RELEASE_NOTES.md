@@ -1,10 +1,32 @@
+# Release notes
+
+## 5.8.41 — Publication preparation
+
+- Correct public documentation and align release metadata; no runtime behavior changes.
+- Publication is pending. Local validation is recorded separately in the private release record.
+
+## 5.8.40 — Release packaging update (2026-10-02)
+
+- Synchronized source version metadata and current documentation only; no runtime implementation changed.
+- Rebuilt and validated this release package at 5.8.40. No runtime behavior changed.
+
+## 5.8.39 — Billing balance refresh and checkout settlement
+
+- Load the authenticated entitlement balance on settings open and refresh the visible balance when checkout settles.
+- Show the approved 50,000, 150,000, 450,000, and 1,200,000 character offers using current Paddle prices and descriptions from Constance; submit the selected exact price ID.
+
 ## 5.8.34 — Billing session and verification fixes
 
 - Persist and rotate refresh tokens before access expiry; clear and revoke the complete session on sign out.
 - Registration requiring verification stays pending and cannot link an installation.
 - Lock the signed-in email until sign out and expose central password recovery.
 
-# Release Notes
+## 5.8.38 — Direct OpenRouter and billing boundary
+
+- Restore direct OpenRouter requests using Torbert's established managed-key manifest or an optional personal key.
+- Keep Constance focused on account access, character balances and usage debits, and Paddle checkout.
+- Validate blank input and preserve the existing charge and write order.
+- Display current Paddle offer details and submit the configured price ID through authenticated Constance checkout.
 
 
 ## 5.8.32 — Account and credit clarity
@@ -59,7 +81,6 @@ Metadata-only release bump: canonical, package, manifest, and publish version su
 
 - Incremented the release version and synchronized the source-inclusive public artifact.
 - Verified build, tests, syntax, and release metadata before publication.
-
 
 
 ## 5.8.2 - 2026-09-11

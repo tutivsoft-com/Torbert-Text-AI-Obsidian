@@ -1,7 +1,7 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { Notice, PluginSettingTab, Setting } from "obsidian";
 import { transformations } from "./transformations";
 import type TorbertTextAiPlugin from "./main";
-import { openCheckout, syncPurchasedCharactersFromConstance } from "./billing";
+import { addLivePacks, openCheckout, syncPurchasedCharactersFromConstance } from "./billing";
 import { addBillingAccountSettings } from "./constance-account";
 
 const TRANSFORMATION_CATEGORY_ORDER = [
@@ -36,12 +36,18 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
     const { containerEl } = this;
 
     containerEl.empty();
-    this.plugin.support.addDiagnosticsSetting(containerEl);
+
     containerEl.createEl("h2", { text: "Torbert Text AI Settings" });
 
+    new Setting(containerEl).setName("Settings mode").setDesc("Simple shows everyday controls. Advanced adds customization and troubleshooting.")
+      .addDropdown(dropdown => dropdown.addOption("simple", "Simple").addOption("advanced", "Advanced")
+        .setValue(this.plugin.settings.settingsMode).onChange(async value => {
+          this.plugin.settings.settingsMode = value === "advanced" ? "advanced" : "simple";
+          await this.plugin.saveSettings(); this.display();
+        }));
     new Setting(containerEl).setName("Getting started").setHeading();
     containerEl.createEl("p", {
-      text: "Non-AI transformations stay inside this vault. AI transformations are optional and send the selected text or note content to OpenRouter when you run them. An API key is optional when Torbert's built-in service is available. Note and folder edits apply when launched; the latest applied change can be restored from the command palette. Every transformation is also searchable in the command palette under Torbert Text AI.",
+      text: "Non-AI transformations stay inside this vault. AI transformations send selected text or note content directly to OpenRouter when you run them. A managed key is retrieved from Torbert's encrypted key manifest. Note and folder edits apply when launched; use Restore last change to undo the latest operation.",
     });
     new Setting(containerEl)
       .setName("AI request queue")
@@ -55,14 +61,10 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
     });
     this.creditsSummaryEl = containerEl.createEl("p", { cls: "torbert-credits-summary" });
     this.renderCreditsSummary();
+    this.plugin.refreshBillingCredits = () => this.renderCreditsSummary();
 
     addBillingAccountSettings(containerEl, { state: this.plugin.settings, appId: "torbert-text-ai-obsidian", installationId: this.plugin.settings.constanceDeviceId, appVersion: this.plugin.manifest.version, persist: () => this.plugin.saveSettings(), syncBalance: () => syncPurchasedCharactersFromConstance(this.plugin), refresh: () => this.display() });
-    const buySetting = new Setting(containerEl)
-      .setName("Buy characters")
-      .setDesc("Opens secure checkout on app.tutivsoft.com for a one-time character pack. Credits apply to this device's balance after payment.");
-    buySetting.addButton((button) => button.setButtonText("Buy $1 (20,000 characters)").onClick(() => openCheckout(this.plugin, "usd_001")));
-    buySetting.addButton((button) => button.setButtonText("Buy $5 (160,000 characters)").setCta().onClick(() => openCheckout(this.plugin, "usd_005")));
-    buySetting.addButton((button) => button.setButtonText("Buy $15 (640,000 characters)").onClick(() => openCheckout(this.plugin, "usd_015")));
+    addLivePacks(containerEl,this.plugin);
 
     new Setting(containerEl)
       .setName("Refresh balance")
@@ -71,17 +73,18 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
         button.setButtonText("Refresh balance").onClick(async () => {
           button.setDisabled(true);
           button.setButtonText("Refreshing...");
-          await syncPurchasedCharactersFromConstance(this.plugin);
-          this.renderCreditsSummary();
-          button.setDisabled(false);
-          button.setButtonText("Refresh balance");
+          try { await syncPurchasedCharactersFromConstance(this.plugin, true); this.renderCreditsSummary(); }
+          catch { new Notice("Could not refresh balance. Please try again."); }
+          finally { button.setDisabled(false); button.setButtonText("Refresh balance"); }
         }),
       );
 
     // Sync on open so the summary reflects a purchase made since last time
     // Obsidian was open, without requiring a manual refresh click.
-    void syncPurchasedCharactersFromConstance(this.plugin).then(() => this.renderCreditsSummary());
+    void syncPurchasedCharactersFromConstance(this.plugin).then(() => this.renderCreditsSummary()).catch(() => {});
 
+    if (this.plugin.settings.settingsMode !== "advanced") return;
+    this.plugin.support.addDiagnosticsSetting(containerEl);
     new Setting(containerEl).setName("Menus and toolbar").setHeading();
 
     new Setting(containerEl)
@@ -135,21 +138,20 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("OpenRouter API key")
-      .setDesc("Optional personal override. Torbert loads its own capped key automatically when this is blank; AI actions still send note text to OpenRouter.")
+      .setDesc("Optional personal override. If blank, Torbert retrieves its managed key from the encrypted key manifest.")
       .addText((text) => text
         .setPlaceholder("sk-...")
         .setValue(this.plugin.settings.openAiApiKey)
         .onChange(async (value) => {
           this.plugin.settings.openAiApiKey = value;
           await this.plugin.saveSettings();
-        }))
-      ;
+        }));
 
     new Setting(containerEl)
       .setName("OpenRouter model")
       .setDesc("Model used by AI transformations.")
       .addText((text) => text
-      .setPlaceholder("openai/gpt-5-mini")
+        .setPlaceholder("~deepseek/deepseek-v4-flash-latest")
         .setValue(this.plugin.settings.openAiModel)
         .onChange(async (value) => {
           this.plugin.settings.openAiModel = value;
@@ -158,9 +160,9 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Large-content OpenRouter model")
-      .setDesc("Model used by AI transformations that need to inspect whole or larger note text.")
+      .setDesc("Model used by AI transformations that inspect larger note content.")
       .addText((text) => text
-      .setPlaceholder("openai/gpt-5-mini")
+        .setPlaceholder("~deepseek/deepseek-v4-flash-latest")
         .setValue(this.plugin.settings.largeContentOpenAiModel)
         .onChange(async (value) => {
           this.plugin.settings.largeContentOpenAiModel = value;
@@ -200,6 +202,8 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           try {
             const parsed = JSON.parse(value) as Array<{ name?: string; prompt?: string }>;
+            if (!Array.isArray(parsed) || parsed.some(preset => !preset || typeof preset !== "object")) throw new Error("Expected an array of named prompts");
+            text.inputEl.setCustomValidity("");
             this.plugin.settings.customPromptPresets = parsed
               .map((preset) => ({
                 name: String(preset.name || "").trim(),
@@ -208,7 +212,7 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
               .filter((preset) => preset.name && preset.prompt);
             await this.plugin.saveSettings();
           } catch {
-            // Keep the last valid presets while the user is editing JSON.
+            text.inputEl.setCustomValidity("Use a JSON array of objects with name and prompt. Your last valid presets are kept.");
           }
         }));
 
@@ -229,6 +233,7 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
       categoryTransformations.forEach(([transformationId, transformation]) => {
         new Setting(containerEl)
           .setName(transformation.name)
+          .setDesc("Show this action in the context submenu. It remains available in the command palette.")
           .addToggle((toggle) => toggle
             .setValue(this.plugin.settings.enabledTransformations[transformationId] ?? true)
             .onChange(async (value) => {
