@@ -265,6 +265,7 @@ export function summarizeAiUsage(requests: AiRequestUsage[]): AiUsageSummary {
 }
 
 export async function rewriteWithOpenAi(settings: PluginSettings, instruction: string, text: string, abortSignal?: AbortSignal): Promise<string> {
+  validateAiInput(text);
   return requestFullTextEdit(settings, [
     "You edit Markdown text.",
     "Return only the revised Markdown text.",
@@ -274,6 +275,7 @@ export async function rewriteWithOpenAi(settings: PluginSettings, instruction: s
 }
 
 export async function highlightReadingKeywordsWithOpenAi(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
+  validateAiInput(text);
   return requestFullTextEdit(settings, [
     "You add Obsidian highlights to make Markdown easier to skim.",
     "Return the full Markdown text with only ==highlight== markup added.",
@@ -287,6 +289,7 @@ export async function highlightReadingKeywordsWithOpenAi(settings: PluginSetting
 }
 
 export async function generateSummaryFromContent(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
+  validateAiInput(text);
   return requestOpenAiText(settings, [
     "You summarize Markdown notes for Obsidian.",
     "Return only a concise plain-text summary.",
@@ -301,6 +304,7 @@ export async function generateSummaryFromContent(settings: PluginSettings, text:
 }
 
 export async function generateDelimitedSummaryPrefix(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
+  validateAiInput(text);
   return requestOpenAiText(settings, [
     "You create searchable one-line summary prefixes for Markdown notes.",
     "Return only the summary prefix text.",
@@ -317,6 +321,7 @@ export async function generateDelimitedSummaryPrefix(settings: PluginSettings, t
 }
 
 export async function classifyFolderFromContent(settings: PluginSettings, folders: string[], text: string, abortSignal?: AbortSignal): Promise<string> {
+  validateAiInput(text);
   const folderList = folders.length > 0 ? folders : ["Jobs", "Clients", "DevOps", "Finance"];
   const rawFolder = await requestOpenAiText(settings, [
     "You classify Obsidian notes into one folder.",
@@ -352,6 +357,12 @@ export function buildThreePartSample(text: string, maxCharacters = 5000): string
     "[ENDING]",
     text.slice(-partLength),
   ].join("\n").slice(0, maxCharacters);
+}
+
+function validateAiInput(text: string): void {
+  if (!text.trim()) {
+    throw new Error("Enter some text before running an AI transformation.");
+  }
 }
 
 export function applySummary(text: string, summary: string): string {
@@ -392,7 +403,10 @@ async function requestOpenAiText(settings: PluginSettings, instructions: string,
   }
 
   try {
-    return requestOpenAiResponsesText(settings, instructions, input, modelOverride, controller.signal);
+    if (!input.trim()) {
+      throw new Error("Enter some text before running an AI transformation.");
+    }
+    return await requestOpenAiResponsesText(settings, instructions, input, modelOverride, controller.signal);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("OpenRouter request timed out.");
