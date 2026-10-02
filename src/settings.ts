@@ -4,6 +4,7 @@ import type { PluginSettings } from "./types";
 // New transformations are enabled by default so they appear in the submenu
 // unless the user explicitly disables them in Obsidian settings.
 export const DEFAULT_SETTINGS: PluginSettings = {
+  settingsMode: "simple",
   showRibbonIcon: true,
   showContextMenuSingle: true,
   showContextMenuSubmenu: true,

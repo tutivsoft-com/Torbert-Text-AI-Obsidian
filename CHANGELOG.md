@@ -1,4 +1,25 @@
+## 5.8.40 — Release packaging update (2026-10-02)
+
+- Synchronized source version metadata and current documentation only; no runtime implementation changed.
+- Rebuilt and validated this release package at 5.8.40. No runtime behavior changed.
+
+## 5.8.39 (2026-10-02)
+
+- Refresh the displayed native-unit balance when billing settings open and after checkout reaches a terminal result.
+- Preserve provider catalog pricing and checkout selection by exact configured Paddle price ID.
+
 ## 5.8.34 — Billing session and verification fixes
+
+## 5.8.38 (2026-10-02)
+
+- Restore direct OpenRouter requests with Torbert's existing managed-key manifest and optional personal key; Constance remains responsible for billing only.
+- Validate blank AI input, preserve timeout handling, and retain existing character charge and write ordering.
+- Keep purchase details current from Constance's Paddle metadata and verify the configured exact price ID before checkout.
+
+## 5.8.37 (2026-10-02)
+
+- Show current one-time offers from Constance provider prices, joined to each app's native billing units by exact price ID; submit checkout with that ID and preserve pending checkout recovery.
+
 
 - Persist and rotate refresh tokens before access expiry; clear and revoke the complete session on sign out.
 - Registration requiring verification stays pending and cannot link an installation.

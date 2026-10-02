@@ -2,7 +2,7 @@ import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu
 import { classifyFolderFromContent, collectAiUsageDuring, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
 import { isWeakTitle, noteSimilarity, parseFolderList } from "./feature-utils";
 import { FileLogger } from "./logger";
-import { checkCharactersAvailable, generateEventId, retryPendingSpendEvents, resumePendingCheckout, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
+import { checkCharactersAvailable, generateEventId, retryPendingSpendEvents, resumePendingCheckout, resumePendingPaddleCheckout, spendConstanceCredits, syncPurchasedCharactersFromConstance } from "./billing";
 import { claimAccountFreeUsage, ensureBillingAccessToken, clearBillingSession } from "./constance-account";
 import { DEFAULT_SETTINGS } from "./settings";
 import { TorbertTextAiSettingTab } from "./settings-tab";
@@ -86,6 +86,7 @@ class BatchPreviewModal extends Modal {
 }
 
 export default class TorbertTextAiPlugin extends Plugin {
+  refreshBillingCredits?: () => void;
   support!: PluginSupport;
   settings!: PluginSettings;
   private logger!: FileLogger;
@@ -117,6 +118,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       // Background balance sync; never blocks load, fails silently offline.
       void syncPurchasedCharactersFromConstance(this).then(() => retryPendingSpendEvents(this));
       resumePendingCheckout(this);
+      resumePendingPaddleCheckout(this);
 
       if (this.settings.showRibbonIcon) {
         this.addRibbonIcon("wand", "Replace bold with highlight", () => this.applyTransformationToEditor(null, "boldToHighlight"));
@@ -484,7 +486,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.settings.purchasedCharacters = 0;
       this.settings.pendingSpendEvents = this.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
       await this.saveSettings();
-      new Notice("Torbert: out of characters. Buy more in plugin settings (Buy $1 / $5 / $15 packs).");
+      new Notice("Torbert: out of characters. View the current character offers in plugin settings.");
       return false;
     }
 
@@ -1350,6 +1352,7 @@ export default class TorbertTextAiPlugin extends Plugin {
     const loadedSettings = await this.loadData();
 
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
+    this.settings.settingsMode = this.settings.settingsMode === "advanced" ? "advanced" : "simple";
     if (loadedSettings?.enabledTransformations) {
       this.settings.enabledTransformations = Object.assign(
         {},

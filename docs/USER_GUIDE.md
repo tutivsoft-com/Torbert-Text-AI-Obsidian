@@ -2,79 +2,46 @@
 
 ## What Torbert does
 
-Torbert provides small, predictable Markdown transformations plus optional AI actions for notes and folders. A chosen transformation applies when launched, and the latest applied operation can be restored.
+Torbert provides Markdown cleanup and optional AI transformations for notes and folders. A chosen transformation applies when launched, and the latest applied operation can be restored.
 
 ## Choose an action
 
 - In the editor, right-click selected text or the current note.
 - In the file explorer, right-click a Markdown file or folder.
-- In the command palette, search `Torbert Text AI:`. Every registered transformation has its own categorized entry.
+- In the command palette, search `Torbert Text AI:`.
 
-The **Torbert Text AI** context submenu is organized into **AI**, **Text Cleanup**, and **Markdown Notes**. Saved prompt presets are grouped under **Saved prompt presets**.
+The context menu groups actions under **AI**, **Text Cleanup**, and **Markdown Notes**. Saved prompt presets appear under their own group.
 
-## Text Cleanup examples
+## Text cleanup
 
-- **Title Case**, **UPPERCASE**, **lowercase**, and **Sentence Case** normalize text.
-- **Sort Lines A-Z** and **Sort Lines Z-A** reorder lines.
-- **Remove Duplicate Lines**, **Remove Similar Lines**, **Remove Blank Lines**, and **Clean Extra Newlines** tidy notes.
-- **Highlight Keywords** uses the keywords configured in settings.
-- **Slugify**, **Straight Quotes**, **URL Encode**, and **URL Decode** prepare text for links and systems.
+Text cleanup includes case conversion, sorting, duplicate and blank-line removal, keyword highlighting, URL encoding and decoding, slug creation, and quote conversion.
 
-Example:
+## Markdown notes
 
-```text
-Urgent:  https://example.com
-Urgent:  https://example.com
-```
-
-After **Remove Duplicate Lines** and **Clean Extra Newlines**:
-
-```text
-Urgent: https://example.com
-```
-
-## Markdown Notes examples
-
-- Convert lines to bullets or bullets to numbers.
-- Increase/decrease heading levels.
-- Fix Markdown numbering and structure.
-- Toggle checkboxes.
-- Extract action items or URLs.
-- On a folder, find weak titles or likely duplicate notes.
-
-Example:
-
-```markdown
-Follow up with Maya by Friday
-Review contract
-```
-
-**Extract Actions** creates an `## Action Items` section so the next steps are easy to find.
+Markdown actions include heading and list conversion, numbering repair, structure cleanup, checkboxes, action items, URL extraction, weak-title detection, and likely duplicate-note detection.
 
 ## AI features
 
-AI actions include reading highlights, summaries, summary prefixes, folder classification, and saved prompt presets. AI metadata and tags belong in Tundra, note renaming in Denali, and proofreading in Culebra.
+AI actions include reading highlights, summaries, summary prefixes, folder classification, and saved prompt presets. For frontmatter and tags use Tundra; for note renaming use Denali; for proofreading use Culebra.
 
-AI actions send selected or note content to the configured provider when launched. Use Restore last change if you need to undo the result.
+Torbert sends the selected text or note content directly to OpenRouter when an AI action runs. The optional personal API key takes priority. If that setting is blank, Torbert retrieves its managed key from the established encrypted Pattern B manifest. Provider and model controls are in Advanced settings. Constance does not proxy AI requests or select the model.
 
-The AI request queue opens automatically when an AI action starts. It shows the submitted text excerpt, elapsed seconds, batch progress, and completion status. Overlapping AI actions run one at a time; clear waiting actions from the queue while the active action finishes. Reopen it from Settings or the command palette.
+The AI request queue shows the submitted text excerpt, elapsed time, batch progress, and completion status. Actions run one at a time; clear waiting actions while the active request finishes.
 
-## Restore and billing
+## Account and billing
 
-Torbert applies a user-initiated transformation without a second preview dialog. If a note changes during processing, Torbert keeps the newer text. Use **Restore last change** to undo the latest applied operation.
+Connect a billing account in plugin settings. Verify the email link if requested, then connect again. Constance supplies free and purchased character balances and processes usage debits and Paddle checkouts. Torbert offers 50,000, 150,000, 450,000, and 1,200,000 characters per purchase. Current Paddle amounts, descriptions, and availability load through Constance. An AI result is charged before it is applied; a failed provider request does not submit a usage debit.
 
-Account and billing controls appear at the top of plugin settings. Register with an email and password, confirm the email link, then sign in. Settings keep balance refresh, sign-out, and one-time character packs together; metered AI actions report usage and the remaining balance. Provider configuration, privacy details, and optional debug logging remain available below.
+## Restore and safe workflow
 
-## Safe workflow
+If a note changes while an action is running, Torbert keeps the newer text. Use **Restore last change** to undo the latest applied operation.
 
 1. Test a transformation on a copied note.
-2. Let Torbert apply the result.
-3. Check dates, names, links, code blocks, and frontmatter.
-4. Restore the latest operation if the result is not wanted.
-5. Restore the latest operation if needed.
+2. Check dates, names, links, code blocks, and frontmatter.
+3. Restore the latest operation if the result is not wanted.
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.22)
+## Workflow defaults (v5.8.40)
 
-Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
+AI output is applied when the user launches a transformation. Before-and-after previews are optional and off by default.
 <!-- one-click-workflow:end -->

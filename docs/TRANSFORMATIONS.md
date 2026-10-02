@@ -1,6 +1,6 @@
 # Transformations Reference
 
-This reference is current for Torbert Text AI 5.8.32. It describes what each text command does, why it exists, and a sample input/output pair. The examples use the same behavior as `src/transformations.ts`; the 5.8.32 release updates account and credit controls without changing transformation behavior.
+This reference describes the current Torbert Text AI transformations and matches `src/transformations.ts` for version 5.8.40.
 
 ## General Rules
 
@@ -10,7 +10,7 @@ This reference is current for Torbert Text AI 5.8.32. It describes what each tex
 - File-menu commands transform the whole Markdown file.
 - Folder-menu commands transform all Markdown files in the selected folder and its subfolders.
 - Every transformation is available from the command palette under a `Torbert Text AI: Category / Name` label, as well as the relevant editor, file, or folder menu.
-- AI commands use the configured provider. A manually entered OpenRouter API key takes precedence; when blank, the repository's dedicated encrypted key manifest is loaded automatically.
+- AI transformations call OpenRouter directly. A blank personal key uses Torbert’s established encrypted Pattern B key manifest; the OpenRouter model can be selected in Advanced settings. Constance handles billing only.
 - The plugin records the last 20 operations so recent text edits, file edits, recursive folder batches, summary updates and folder classification can be restored.
 
 ## Commands
