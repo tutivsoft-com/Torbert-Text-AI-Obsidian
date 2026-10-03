@@ -1,6 +1,6 @@
 # Transformations Reference
 
-This reference describes the current Torbert Text AI transformations and matches `src/transformations.ts` for version 5.8.41.
+This reference documents the current Torbert Text AI transformations and was checked against `src/transformations.ts` for version 5.8.43. The transformation implementation is unchanged from version 5.8.41.
 
 ## General Rules
 

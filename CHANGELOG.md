@@ -1,9 +1,14 @@
 # Changelog
 
-## 5.8.41 — Publication preparation
+## 5.8.43 — Transformation guide version correction
 
-- Correct public documentation and align release metadata; no runtime behavior changes.
-- Publication is pending. Local validation is recorded separately in the private release record.
+- Correct the current transformation reference version; the implementation is unchanged from 5.8.41.
+
+
+## 5.8.42 — Constance account recovery
+
+- Save successful account sessions before installation linking; preserve sessions when billing is temporarily unavailable and clear tokens rejected by the server.
+- Preserve structured account error codes and show accurate sign-in and email-verification guidance.
 
 ## 5.8.40 — Release packaging update (2026-10-02)
 
@@ -41,7 +46,7 @@
 
 ## 5.8.27 (2026-09-26)
 
-- Synchronized the private publication source mirror with all canonical plugin modules so the public source review matches the built bundle. No plugin behavior changed.
+- Published the complete TypeScript source needed to review the generated bundle; no plugin behavior changed.
 
 ## 5.8.26 (2026-09-26)
 
@@ -129,7 +134,7 @@
 ## 5.8.2 - 2026-09-11
 
 - Re-published the complete source-inclusive TutivSoft release package so the Obsidian Community source review can inspect the tagged release.
-- Recorded the historical successful-release layout and the expected private-source connection.
+- Documented the source-inclusive release package and installation steps.
 - Automated Obsidian checks completed; an immediate automated recheck was
   requested and recorded as `open` on 2026-09-11.
 
@@ -150,11 +155,11 @@
 
 ## 5.7.2 - 2026-08-20
 
-- **Fixed checkout**: every `/buy` call (all three packs) was failing with `That price id is not allowed for this app.` Root cause: `APP_ID` in `src/billing.ts` was `"torbert-text-ai"`, which collides with the unrelated `saas-python-python-torbert-text-ai` webapp's own Constance app_id — that webapp's subscription catalog row was the one actually live in production, so this plugin's one-time-pack pricing (added in 5.7.0) had never been reachable under that app_id. Changed `APP_ID` to `"torbert-text-ai-obsidian"` and rebuilt `publish/main.js`. Constance was updated on its side with a matching catalog row for the new app_id (data-only there, no Constance code changed); the webapp's own billing was untouched. Verified live: `GET /buy?app_id=torbert-text-ai-obsidian&price_id=...` now returns a real Paddle transaction redirect for all three packs. Full incident writeup: `CONSTANCE_BILLING_ROLLOUT.md` in the Constance repo.
+- Restored billing checkout availability and aligned the plugin with its dedicated billing catalog.
 
 ## 5.7.1 - 2026-08-20
 
-- Patched the published plugin metadata (`manifest.json`, `package.json`, `VERSION`, `publish/manifest.json`) to `5.7.1` and aligned the RA1 metadata surface (`rahul_manifest.yaml`, `architecture.md`, `HISTORY.md`, `package-lock.json`) to `5.6.4`. No functional source changes from `5.7.0`; the rebuilt `publish/main.js` is byte-equivalent except for the version comment trail.
+- Synchronized plugin version metadata and rebuilt the release bundle; no feature behavior changed.
 
 ## 5.7.0 - 2026-08-19
 
@@ -165,7 +170,7 @@
 ## 5.6.3 - 2026-08-18
 
 - Prepared the complete public repository package for the Obsidian Community review.
-- Added source, README, license, corrected manifest metadata, and release attestations.
+- Added TypeScript source, user documentation, and corrected plugin metadata.
 
 ## 5.6.0 - 2026-08-18
 

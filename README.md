@@ -1,6 +1,6 @@
 # Torbert Text AI
 
-Version: 5.8.41 — validated locally for publication; release pending.
+Version: 5.8.43 — release source validated.
 
 Torbert applies Markdown cleanup and text transformations in Obsidian, including summaries, folder classification, and reading highlights.
 
@@ -34,7 +34,7 @@ The current offers are 50,000, 150,000, 450,000, and 1,200,000 characters. Purch
 
 AI actions send the selected text or note content directly to OpenRouter. Torbert reads and modifies Markdown files in the current vault. It does not use analytics, advertising, or automatic updates. Optional debug logging is off by default.
 
-## Workflow defaults (v5.8.41)
+## Workflow defaults
 
 AI output is applied when the user launches a transformation. Before-and-after previews are optional and off by default.
 
