@@ -1,9 +1,9 @@
 # Release notes
 
-## 5.8.41 — Publication preparation
+## 5.8.42 — Constance account recovery
 
-- Correct public documentation and align release metadata; no runtime behavior changes.
-- Publication is pending. Local validation is recorded separately in the private release record.
+- Save successful account sessions before installation linking; preserve sessions when billing is temporarily unavailable and clear tokens rejected by the server.
+- Preserve structured account error codes and show accurate sign-in and email-verification guidance.
 
 ## 5.8.40 — Release packaging update (2026-10-02)
 
@@ -101,16 +101,10 @@ still always takes priority. No change to the OpenRouter endpoint or model.
 
 ## 5.7.2 - 2026-08-20
 
-Checkout fix: the plugin's Constance `app_id` (`torbert-text-ai`) collided
-with the unrelated `saas-python-python-torbert-text-ai` webapp's own app_id,
-so every $1/$5/$15 character-pack purchase failed with "That price id is
-not allowed for this app." Renamed this plugin's app_id to
-`torbert-text-ai-obsidian` and provisioned it on the Constance side; the
-webapp's own billing was untouched. All three packs verified working live.
-
+- Corrected a billing-catalog identity mismatch that prevented character-pack checkout.
 ## 5.7.1 - 2026-08-20
 
-- Patch release: bumped the published plugin version to `5.7.1` (`manifest.json`, `package.json`, `VERSION`, `publish/manifest.json`) and synchronized the RA1 metadata surface (`rahul_manifest.yaml`, `architecture.md`, `HISTORY.md`, `package-lock.json`) to `5.6.4`. No application source or feature changes from `5.7.0`.
+- Updated plugin version metadata while preserving the feature behavior from 5.7.0.
 
 ## 5.6.0 - 2026-08-18
 
@@ -180,8 +174,6 @@ This release keeps the plugin behavior unchanged while making the codebase much 
 - The text transformations are documented with sample inputs and outputs.
 - The generated bundle was compared against the original bundle with sample cases, and the outputs matched.
 
-<!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.22)
+## Workflow defaults
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
-<!-- one-click-workflow:end -->

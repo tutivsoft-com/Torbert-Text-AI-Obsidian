@@ -40,8 +40,6 @@ If a note changes while an action is running, Torbert keeps the newer text. Use 
 2. Check dates, names, links, code blocks, and frontmatter.
 3. Restore the latest operation if the result is not wanted.
 
-<!-- one-click-workflow:start -->
-## Workflow defaults (v5.8.41)
+## Workflow defaults
 
 AI output is applied when the user launches a transformation. Before-and-after previews are optional and off by default.
-<!-- one-click-workflow:end -->
