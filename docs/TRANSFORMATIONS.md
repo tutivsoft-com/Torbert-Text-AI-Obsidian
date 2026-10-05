@@ -1,6 +1,6 @@
 # Transformations Reference
 
-This reference documents the current Torbert Text AI transformations and was checked against `src/transformations.ts` for version 5.8.43. The transformation implementation is unchanged from version 5.8.41.
+This reference documents the current Torbert Text AI transformations and was checked against `src/transformations.ts` for version 5.8.49. AI requests use the fixed latest-model alias.
 
 ## General Rules
 
@@ -10,7 +10,7 @@ This reference documents the current Torbert Text AI transformations and was che
 - File-menu commands transform the whole Markdown file.
 - Folder-menu commands transform all Markdown files in the selected folder and its subfolders.
 - Every transformation is available from the command palette under a `Torbert Text AI: Category / Name` label, as well as the relevant editor, file, or folder menu.
-- AI transformations call OpenRouter directly. A blank personal key uses Torbert’s established encrypted Pattern B key manifest; the OpenRouter model can be selected in Advanced settings. Constance handles billing only.
+- AI transformations call OpenRouter directly. A blank personal key uses Torbert’s established encrypted Pattern B key manifest; requests use the fixed OpenRouter model `~openai/gpt-luna-latest`. Constance handles billing only.
 - The plugin records the last 20 operations so recent text edits, file edits, recursive folder batches, summary updates and folder classification can be restored.
 
 ## Commands
@@ -346,7 +346,7 @@ Input:
 
 ```text
   one
-	two	
+	two
 three
 ```
 

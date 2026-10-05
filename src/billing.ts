@@ -1,6 +1,7 @@
+import { consumeAccountUnits } from "./account-credit-client";
 import { Notice, requestUrl, Setting } from "obsidian";
 import type TorbertTextAiPlugin from "./main";
-import { spendAccountCredits, ensureBillingAccessToken, clearBillingSession } from "./constance-account";
+import { spendAccountCredits, ensureBillingAccessToken, clearBillingSession, refreshBillingSession } from "./constance-account";
 
 const BASE_URL = "https://app.tutivsoft.com";
 // Distinct from the "torbert-text-ai" app_id used by the separate
@@ -50,7 +51,7 @@ export function addLivePacks(root: HTMLElement, plugin: TorbertTextAiPlugin): vo
         Number.isSafeInteger(units) && units > 0 ? `${units.toLocaleString()} ${unit}` : "",
         available ? "" : pack?.availability_reason || "Current price unavailable",
       ].filter(Boolean).join(" · ");
-      const row = new Setting(section).setName(pack.name || pack.code || "One-time offer").setDesc(description);
+      const row = new Setting(section).setName(pack.price_name || pack.name || pack.code || "One-time offer").setDesc(description);
       row.addButton((button) => button
         .setButtonText(available ? `Buy ${amount}` : "Pricing unavailable")
         .setDisabled(!available)
@@ -323,11 +324,11 @@ export async function checkCharactersAvailable(plugin: TorbertTextAiPlugin, amou
   try {
     const entitlement = await fetchConstanceEntitlements(plugin);
     const freeRemaining = Math.max(0, Number(entitlement?.free_usage?.remaining) || 0);
-    const purchasedBalance = Math.max(0, Number(entitlement?.credits?.balance) || 0);
+    const purchasedBalance = Math.max(0, Number((entitlement?.credits?.total_available ?? entitlement?.credits?.balance)) || 0);
     plugin.settings.freeCharacters = freeRemaining;
     plugin.settings.purchasedCharacters = purchasedBalance;
     await plugin.saveSettings();
-    if (freeRemaining >= amount || purchasedBalance >= amount) return true;
+    if (freeRemaining + purchasedBalance >= amount) return true;
     new Notice("Torbert: not enough free or purchased characters. No AI request was sent.");
     return false;
   } catch {
@@ -346,6 +347,14 @@ export type SpendResult =
   | { kind: "error" };
 
 export async function spendConstanceCredits(plugin: TorbertTextAiPlugin, amount: number, stableEventId = generateEventId()): Promise<SpendResult> {
+  if (stableEventId.startsWith("consume_")) {
+    const result = await consumeAccountUnits({ state: plugin.settings, appId: APP_ID, installationId: plugin.settings.constanceDeviceId, refreshSession: () => refreshBillingSession(plugin.settings, () => plugin.saveSettings()) }, stableEventId, amount);
+    if (result.kind === "ok") {
+      plugin.settings.freeCharacters = result.freeRemaining ?? plugin.settings.freeCharacters;
+      return { kind: "ok", balance: result.balance ?? plugin.settings.purchasedCharacters };
+    }
+    return { kind: result.kind === "insufficient" ? "insufficient" : "error" };
+  }
   const result = await spendAccountCredits(adapterFor(plugin), APP_ID, plugin.settings.constanceDeviceId, stableEventId, amount);
   if (result.kind === "auth-required") { await clearBillingSession(adapterFor(plugin)); return { kind: "error" }; }
   return result.kind === "ok" || result.kind === "insufficient" || result.kind === "error" ? result : { kind: "error" };
@@ -368,7 +377,7 @@ export async function syncPurchasedCharactersFromConstance(plugin: TorbertTextAi
   try {
     if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) { if (manual) throw new Error("Connect your billing account before refreshing credits."); return; }
     const entitlement = await fetchConstanceEntitlements(plugin);
-    const serverBalance = entitlement?.credits?.balance;
+    const serverBalance = (entitlement?.credits?.total_available ?? entitlement?.credits?.balance);
     if (!Number.isFinite(serverBalance)) throw new Error("Billing returned an invalid balance");
     plugin.settings.freeCharacters = Math.max(0, Number(entitlement?.free_usage?.remaining) || 0);
     plugin.settings.purchasedCharacters = Math.max(0, Number(serverBalance) || 0);

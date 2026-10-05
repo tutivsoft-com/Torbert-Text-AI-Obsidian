@@ -24,13 +24,13 @@ Markdown actions include heading and list conversion, numbering repair, structur
 
 AI actions include reading highlights, summaries, summary prefixes, folder classification, and saved prompt presets. For frontmatter and tags use Tundra; for note renaming use Denali; for proofreading use Culebra.
 
-Torbert sends the selected text or note content directly to OpenRouter when an AI action runs. The optional personal API key takes priority. If that setting is blank, Torbert retrieves its managed key from the established encrypted Pattern B manifest. Provider and model controls are in Advanced settings. Constance does not proxy AI requests or select the model.
+Torbert sends the selected text or note content directly to OpenRouter when an AI action runs. The optional personal API key takes priority. If that setting is blank, Torbert retrieves its managed key from the established encrypted Pattern B manifest. Provider preferences remain in Advanced settings; actual requests use `~openai/gpt-luna-latest` regardless of saved model preferences. Constance does not proxy AI requests or select the model.
 
 The AI request queue shows the submitted text excerpt, elapsed time, batch progress, and completion status. Actions run one at a time; clear waiting actions while the active request finishes.
 
 ## Account and billing
 
-Connect a billing account in plugin settings. Verify the email link if requested, then connect again. Constance supplies free and purchased character balances and processes usage debits and Paddle checkouts. Torbert offers 50,000, 150,000, 450,000, and 1,200,000 characters per purchase. Current Paddle amounts, descriptions, and availability load through Constance. An AI result is charged before it is applied; a failed provider request does not submit a usage debit.
+Connect a billing account in plugin settings. Verify the email link if requested, then connect again. Constance supplies free and purchased character balances and processes usage debits and Paddle checkouts. Torbert offers 20,000, 60,000, 180,000, and 450,000 characters per purchase. Current Paddle amounts, descriptions, and availability load through Constance. An AI result is charged before it is applied; a failed provider request does not submit a usage debit.
 
 ## Restore and safe workflow
 

@@ -12,8 +12,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   enableTracking: false,
   openAiApiKey: "",
   openAiApiBase: "https://openrouter.ai/api/v1",
-  openAiModel: "~deepseek/deepseek-v4-flash-latest",
-  largeContentOpenAiModel: "~deepseek/deepseek-v4-flash-latest",
+  openAiModel: "~openai/gpt-luna-latest",
+  largeContentOpenAiModel: "~openai/gpt-luna-latest",
   highlightKeywords: "",
   folderClassificationFolders: "Jobs\nClients\nDevOps\nFinance",
   customPromptPresets: [

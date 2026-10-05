@@ -537,7 +537,7 @@ async function requestOpenAiResponsesText(settings: PluginSettings, instructions
     throw new Error("OpenAI API key is not configured.");
   }
 
-  const model = modelOverride?.trim() || settings.openAiModel.trim() || "~deepseek/deepseek-v4-flash-latest";
+  const model = "~openai/gpt-luna-latest";
   const response = await fetch(`${normalizeBaseUrl(settings.openAiApiBase || "https://openrouter.ai/api/v1")}/chat/completions`, {
     method: "POST",
     headers: {

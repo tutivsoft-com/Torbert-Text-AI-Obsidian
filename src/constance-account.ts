@@ -1,3 +1,4 @@
+import { renderAccountGuidance } from "./account-guidance";
 import { Notice, Setting, requestUrl } from "obsidian";
 
 export const CONSTANCE_ACCOUNT_BASE_URL = "https://app.tutivsoft.com";
@@ -284,6 +285,8 @@ export async function spendAccountCredits(
 export function addBillingAccountSettings(containerEl: HTMLElement, adapter: ConstanceAccountAdapter): void {
   let password = "";
   const section = containerEl.createDiv({ cls: "constance-account-billing-section" });
+
+  renderAccountGuidance(section, { appId: adapter.appId, connected: adapter.state.billingAccountLinked && Boolean(adapter.state.billingAccessToken || adapter.state.billingRefreshToken), defaultAllowance: 2000, unit: "characters", workflow: "Select text or open a Markdown note, then choose a Torbert transformation. You can undo the changes." });
   section.createEl("h3", { text: "Account and billing" });
   const state = adapter.state as ConstanceAccountState & Record<string, unknown>;
   const numericBalances = Object.entries(state)
@@ -360,3 +363,26 @@ export function addBillingAccountSettings(containerEl: HTMLElement, adapter: Con
   });
 }
 
+
+/** A single welcome with an actionable setup link; account guidance stays in settings until connected. */
+export async function showAccountWelcome(plugin: import("obsidian").Plugin, state: ConstanceAccountState, persist: () => Promise<void>): Promise<void> {
+  const openSetup = (): void => {
+    const settings = (plugin.app as unknown as { setting: { open(): void; openTabById(id: string): void } }).setting;
+    settings.open(); settings.openTabById(plugin.manifest.id);
+  };
+  plugin.addCommand({ id: "open-account-setup", name: "Get started: connect your account", callback: openSetup });
+  const saved = state as ConstanceAccountState & { accountWelcomeSeen?: boolean };
+  if (state.billingAccountLinked || saved.accountWelcomeSeen) return;
+  saved.accountWelcomeSeen = true;
+  await persist();
+  plugin.app.workspace.onLayoutReady(() => {
+    if (state.billingAccountLinked) return;
+    const fragment = document.createDocumentFragment();
+    fragment.append("Torbert" + ": create an account or sign in, then connect to check your free allowance (default: 2,000 AI characters once per account). ");
+    const button = document.createElement("button");
+    button.textContent = "Open account setup";
+    button.addEventListener("click", openSetup);
+    fragment.append(button);
+    new Notice(fragment, 12000);
+  });
+}

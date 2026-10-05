@@ -1,5 +1,11 @@
 # Release notes
 
+## 5.8.49 — Source preparation (2026-10-05)
+
+- Incremented source metadata from 5.8.48 and synchronized the existing version surfaces.
+- Reconciled current documentation with the model, account/billing path and release state in code.
+- Built and validated version 5.8.49 for publication; release pending. Earlier receipts remain tied to their original source.
+
 ## 5.8.43 — Transformation guide version correction
 
 - Correct the current transformation reference version; its content was checked against the matching unchanged implementation.

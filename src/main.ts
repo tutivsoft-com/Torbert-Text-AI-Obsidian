@@ -1,3 +1,4 @@
+import { showAccountWelcome } from "./constance-account";
 import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu, type MenuItem } from "obsidian";
 import { classifyFolderFromContent, collectAiUsageDuring, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
 import { isWeakTitle, noteSimilarity, parseFolderList } from "./feature-utils";
@@ -102,6 +103,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.logger = new FileLogger(this.app.vault.adapter, logFilePath);
       await this.loadSettings();
       this.aiQueue = new AiRequestQueue(this.app, "Torbert");
+    await showAccountWelcome(this, this.settings, () => this.saveSettings());
       if (!this.settings.constanceDeviceId) {
         const bytes = new Uint8Array(16);
         crypto.getRandomValues(bytes);
@@ -458,21 +460,12 @@ export default class TorbertTextAiPlugin extends Plugin {
       new Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
       return false;
     }
-    const free = await claimAccountFreeUsage({ state: this.settings, appId: "torbert-text-ai-obsidian", installationId: this.settings.constanceDeviceId, persist: () => this.saveSettings(), syncBalance: async () => {} }, "torbert-text-ai-obsidian", this.settings.constanceDeviceId, `free_${generateEventId()}`, cost);
-    if (free.kind === "ok") {
-      this.settings.freeCharacters = free.remaining;
-      await this.saveSettings();
-      return true;
-    }
-    if (free.kind === "auth-required") { await clearBillingSession({ state: this.settings, appId: "torbert-text-ai-obsidian", installationId: this.settings.constanceDeviceId, persist: () => this.saveSettings(), syncBalance: async () => {} }); new Notice("Torbert: your billing session expired. Sign in again."); return false; }
-    if (free.kind === "error") { new Notice("Torbert: the account allowance could not be verified. No AI request was sent."); return false; }
-
     await retryPendingSpendEvents(this);
     if (this.settings.pendingSpendEvents.length > 0) {
       new Notice("Torbert: a previous credit spend is still being reconciled. Please retry when the connection is restored.");
       return false;
     }
-    const stableEventId = generateEventId();
+    const stableEventId = `consume_${generateEventId()}`;
     this.settings.pendingSpendEvents.push({ eventId: stableEventId, amount: cost });
     await this.saveSettings();
     const result = await spendConstanceCredits(this, cost, stableEventId);
@@ -483,7 +476,6 @@ export default class TorbertTextAiPlugin extends Plugin {
       return true;
     }
     if (result.kind === "insufficient") {
-      this.settings.purchasedCharacters = 0;
       this.settings.pendingSpendEvents = this.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
       await this.saveSettings();
       new Notice("Torbert: out of characters. View the current character offers in plugin settings.");

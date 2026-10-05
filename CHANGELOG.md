@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.8.49 — Source preparation (2026-10-05)
+
+- Incremented source metadata from 5.8.48 and synchronized the existing version surfaces.
+- Reconciled current documentation with the model, account/billing path and release state in code.
+- Built and validated version 5.8.49 for publication; release pending. Earlier receipts remain tied to their original source.
+
+## 5.8.44 — 2026-10-04
+
+Display each Paddle price name with its live description and amount. Private build validated; store publication remains separate.
+
 ## 5.8.43 — Transformation guide version correction
 
 - Correct the current transformation reference version; the implementation is unchanged from 5.8.41.
@@ -19,8 +29,6 @@
 
 - Refresh the displayed native-unit balance when billing settings open and after checkout reaches a terminal result.
 - Preserve provider catalog pricing and checkout selection by exact configured Paddle price ID.
-
-## 5.8.34 — Billing session and verification fixes
 
 ## 5.8.38 (2026-10-02)
 

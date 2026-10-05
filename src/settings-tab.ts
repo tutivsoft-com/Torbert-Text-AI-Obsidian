@@ -151,7 +151,7 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
       .setName("OpenRouter model")
       .setDesc("Model used by AI transformations.")
       .addText((text) => text
-        .setPlaceholder("~deepseek/deepseek-v4-flash-latest")
+        .setPlaceholder("~openai/gpt-luna-latest")
         .setValue(this.plugin.settings.openAiModel)
         .onChange(async (value) => {
           this.plugin.settings.openAiModel = value;
@@ -162,7 +162,7 @@ export class TorbertTextAiSettingTab extends PluginSettingTab {
       .setName("Large-content OpenRouter model")
       .setDesc("Model used by AI transformations that inspect larger note content.")
       .addText((text) => text
-        .setPlaceholder("~deepseek/deepseek-v4-flash-latest")
+        .setPlaceholder("~openai/gpt-luna-latest")
         .setValue(this.plugin.settings.largeContentOpenAiModel)
         .onChange(async (value) => {
           this.plugin.settings.largeContentOpenAiModel = value;
