@@ -1,3 +1,4 @@
+import { diagnostics } from "./diagnostics";
 import { requestUrl } from "obsidian";
 
 export interface AccountCreditHost {
@@ -12,12 +13,17 @@ export type AccountCreditResult =
 
 /** One authenticated, atomic operation: account lifetime allowance first, purchased units next. */
 export async function consumeAccountUnits(host: AccountCreditHost, eventId: string, amount: number): Promise<AccountCreditResult> {
+const diagnosticEnd1 = diagnostics?.start?.("account-credit-client.consumeAccountUnits") ?? (() => {});
+try {
+
   if (!host.state.billingAccountLinked || !host.installationId) return { kind: "auth-required" };
   if (!Number.isSafeInteger(amount) || amount <= 0 || !eventId) return { kind: "error" };
   if (!host.state.billingAccessToken && !await host.refreshSession()) return { kind: host.state.billingRefreshToken ? "error" : "auth-required" };
-  const send = () => requestUrl({ url: "https://app.tutivsoft.com/api/v1/billing/usage/consume", method: "POST", throw: false,
+  const send = () => (diagnostics?.request?.("network.account-credit-client.consumeAccountUnits", requestUrl, { url: "https://app.tutivsoft.com/api/v1/billing/usage/consume", method: "POST", throw: false,
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${host.state.billingAccessToken}` },
-    body: JSON.stringify({ app_id: host.appId, installation_id: host.installationId, event_id: eventId, amount }) });
+    body: JSON.stringify({ app_id: host.appId, installation_id: host.installationId, event_id: eventId, amount }) }) ?? requestUrl({ url: "https://app.tutivsoft.com/api/v1/billing/usage/consume", method: "POST", throw: false,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${host.state.billingAccessToken}` },
+    body: JSON.stringify({ app_id: host.appId, installation_id: host.installationId, event_id: eventId, amount }) }));
   try {
     let response = await send();
     if (response.status === 401 && host.state.billingRefreshToken) {
@@ -33,5 +39,8 @@ export async function consumeAccountUnits(host: AccountCreditHost, eventId: stri
     return { kind: "ok", freeUnits: data.free_units, paidUnits: data.paid_units,
       ...(Number.isFinite(freeRemaining) ? { freeRemaining: Math.max(0, freeRemaining) } : {}),
       ...(Number.isFinite(balance) ? { balance: Math.max(0, balance) } : {}) };
-  } catch { return { kind: "error" }; }
+  } catch (caughtError1) {
+diagnostics.failure("account-credit-client.caught_2", caughtError1); return { kind: "error" }; }
+
+} catch (diagnosticError1) { diagnostics?.failure?.("account-credit-client.consumeAccountUnits", diagnosticError1); throw diagnosticError1; } finally { diagnosticEnd1(); }
 }

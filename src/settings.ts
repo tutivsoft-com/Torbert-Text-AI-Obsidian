@@ -5,6 +5,7 @@ import type { PluginSettings } from "./types";
 // unless the user explicitly disables them in Obsidian settings.
 export const DEFAULT_SETTINGS: PluginSettings = {
   settingsMode: "simple",
+  debugLogging: false,
   showRibbonIcon: true,
   showContextMenuSingle: true,
   showContextMenuSubmenu: true,

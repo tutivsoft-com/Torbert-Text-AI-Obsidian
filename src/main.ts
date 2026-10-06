@@ -1,3 +1,5 @@
+import { selectedFiles, markdownFile, registerSelectionAction } from "./selection-scope";
+import { diagnostics } from "./diagnostics";
 import { showAccountWelcome } from "./constance-account";
 import { Modal, Notice, Plugin, TFile, TFolder, type App, type Editor, type Menu, type MenuItem } from "obsidian";
 import { classifyFolderFromContent, collectAiUsageDuring, parseOpenAiApiKey, rewriteWithOpenAi, sanitizeFolderName, type AiUsageSummary } from "./ai";
@@ -95,14 +97,21 @@ export default class TorbertTextAiPlugin extends Plugin {
   private queueReporter?: QueueReporter;
 
   async onload(): Promise<void> {
-    this.support = new PluginSupport(this, { name: "Torbert Text AI", summary: "Transform, summarize, organize, and clean Markdown text.", quickStart: ["Sign in to billing in Settings.", "Select text or open a note.", "Choose a Torbert transformation; it applies automatically and can be undone."], commands: ["Open transformations", "Undo last operation", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Confirm the current note is Markdown and editable."] });
+let diagnosticStartupEnd: () => void = () => {};
+
+const diagnosticEnd1 = diagnostics?.start?.("main.onload") ?? (() => {});
+try {
+
+    this.support = new PluginSupport(this, { name: "Torbert Text AI", summary: "Transform, summarize, organize, and clean Markdown text.", quickStart: ["Sign in to your account in Settings.", "Select text or open a note.", "Choose a Torbert transformation; it applies automatically and can be undone."], commands: ["Open transformations", "Undo last operation", "Copy diagnostic log"], troubleshooting: ["Use Copy diagnostic log before reporting a problem.", "Confirm the current note is Markdown and editable."] });
     this.support.start();
     try {
       const logFilePath = `${this.manifest.dir || "."}/plugin.log`;
 
       this.logger = new FileLogger(this.app.vault.adapter, logFilePath);
       await this.loadSettings();
-      this.aiQueue = new AiRequestQueue(this.app, "Torbert");
+diagnosticStartupEnd = diagnostics?.start?.("startup.initialize") ?? (() => {});
+
+      this.aiQueue = new AiRequestQueue(this.app, "Torbert", () => this.support.automaticWindowsEnabled());
     await showAccountWelcome(this, this.settings, () => this.saveSettings());
       if (!this.settings.constanceDeviceId) {
         const bytes = new Uint8Array(16);
@@ -118,12 +127,12 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.logger.info("Plugin.onload", "Plugin is loading.");
 
       // Background balance sync; never blocks load, fails silently offline.
-      void syncPurchasedCharactersFromConstance(this).then(() => retryPendingSpendEvents(this));
+      void diagnostics.guard("main.background_1", () => (syncPurchasedCharactersFromConstance(this).then(() => retryPendingSpendEvents(this))));
       resumePendingCheckout(this);
       resumePendingPaddleCheckout(this);
 
       if (this.settings.showRibbonIcon) {
-        this.addRibbonIcon("wand", "Replace bold with highlight", () => this.applyTransformationToEditor(null, "boldToHighlight"));
+        this.addRibbonIcon("wand", "Replace bold with highlight", () => diagnostics.guard("main.event_2", () => (this.applyTransformationToEditor(null, "boldToHighlight"))));
       }
 
       this.addCommand({
@@ -150,14 +159,21 @@ export default class TorbertTextAiPlugin extends Plugin {
               .setTitle("Torbert: Bold to Highlight")
               .setIcon("wand")
               .onClick(() => {
+return diagnostics.guard("main.control_3", () => {
+const diagnosticAction2 = () => {
+
                 if (target instanceof TFolder) {
-                  void this.applyTransformationToFolder(target, "boldToHighlight");
+                  void diagnostics.guard("main.background_4", () => (this.applyTransformationToFolder(target, "boldToHighlight")));
                 } else if (target instanceof TFile) {
-                  void this.applyTransformationToFile(target, "boldToHighlight");
+                  void diagnostics.guard("main.background_5", () => (this.applyTransformationToFile(target, "boldToHighlight")));
                 } else {
-                  void this.applyTransformationToEditor(target, "boldToHighlight");
+                  void diagnostics.guard("main.background_6", () => (this.applyTransformationToEditor(target, "boldToHighlight")));
                 }
-              });
+
+}; return diagnostics?.run ? diagnostics.run("control.6878.onClick", diagnosticAction2) : diagnosticAction2();
+
+});
+});
           });
         }
 
@@ -194,12 +210,19 @@ export default class TorbertTextAiPlugin extends Plugin {
                         submenuItem
                           .setTitle("Classify folder")
                           .onClick(() => {
+return diagnostics.guard("main.control_7", () => {
+const diagnosticAction3 = () => {
+
                             if (target instanceof TFolder) {
-                              void this.classifyFilesInFolder(target);
+                              void diagnostics.guard("main.background_8", () => (this.classifyFilesInFolder(target)));
                             } else {
-                              void this.classifyFile(target);
+                              void diagnostics.guard("main.background_9", () => (this.classifyFile(target)));
                             }
-                          });
+
+}; return diagnostics?.run ? diagnostics.run("control.9169.onClick", diagnosticAction3) : diagnosticAction3();
+
+});
+});
                       });
                     }
 
@@ -208,14 +231,21 @@ export default class TorbertTextAiPlugin extends Plugin {
                         submenuItem
                           .setTitle(this.getTransformationMenuTitle(transformation))
                           .onClick(() => {
+return diagnostics.guard("main.control_10", () => {
+const diagnosticAction4 = () => {
+
                             if (target instanceof TFolder) {
-                              void this.applyTransformationToFolder(target, transformationId);
+                              void diagnostics.guard("main.background_11", () => (this.applyTransformationToFolder(target, transformationId)));
                             } else if (target instanceof TFile) {
-                              void this.applyTransformationToFile(target, transformationId);
+                              void diagnostics.guard("main.background_12", () => (this.applyTransformationToFile(target, transformationId)));
                             } else {
-                              void this.applyTransformationToEditor(target, transformationId);
+                              void diagnostics.guard("main.background_13", () => (this.applyTransformationToEditor(target, transformationId)));
                             }
-                          });
+
+}; return diagnostics?.run ? diagnostics.run("control.9832.onClick", diagnosticAction4) : diagnosticAction4();
+
+});
+});
                       });
                     });
 
@@ -231,12 +261,19 @@ export default class TorbertTextAiPlugin extends Plugin {
                               submenuItem
                                 .setTitle(preset.name)
                                 .onClick(() => {
+return diagnostics.guard("main.control_14", () => {
+const diagnosticAction5 = () => {
+
                                   if (target instanceof TFolder) {
-                                    void this.applyCustomPromptToFolder(target, preset);
+                                    void diagnostics.guard("main.background_15", () => (this.applyCustomPromptToFolder(target, preset)));
                                   } else {
-                                    void this.applyCustomPromptToFile(target, preset);
+                                    void diagnostics.guard("main.background_16", () => (this.applyCustomPromptToFile(target, preset)));
                                   }
-                                });
+
+}; return diagnostics?.run ? diagnostics.run("control.11181.onClick", diagnosticAction5) : diagnosticAction5();
+
+});
+});
                             });
                           });
                         });
@@ -248,15 +285,29 @@ export default class TorbertTextAiPlugin extends Plugin {
                         submenuItem
                           .setTitle("Find Weak Titles")
                           .onClick(() => {
-                            void this.createWeakTitlesReport(target);
-                          });
+return diagnostics.guard("main.control_17", () => {
+const diagnosticAction6 = () => {
+
+                            void diagnostics.guard("main.background_18", () => (this.createWeakTitlesReport(target)));
+
+}; return diagnostics?.run ? diagnostics.run("control.11959.onClick", diagnosticAction6) : diagnosticAction6();
+
+});
+});
                       });
                       categoryMenu.addItem((submenuItem) => {
                         submenuItem
                           .setTitle("Find Duplicate Notes")
                           .onClick(() => {
-                            void this.createDuplicateNotesReport(target);
-                          });
+return diagnostics.guard("main.control_19", () => {
+const diagnosticAction7 = () => {
+
+                            void diagnostics.guard("main.background_20", () => (this.createDuplicateNotesReport(target)));
+
+}; return diagnostics?.run ? diagnostics.run("control.12286.onClick", diagnosticAction7) : diagnosticAction7();
+
+});
+});
                       });
                     }
 
@@ -265,8 +316,15 @@ export default class TorbertTextAiPlugin extends Plugin {
                         submenuItem
                           .setTitle("Restore Last Change")
                           .onClick(() => {
-                            void this.restoreLastOperation();
-                          });
+return diagnostics.guard("main.control_21", () => {
+const diagnosticAction8 = () => {
+
+                            void diagnostics.guard("main.background_22", () => (this.restoreLastOperation()));
+
+}; return diagnostics?.run ? diagnostics.run("control.12696.onClick", diagnosticAction8) : diagnosticAction8();
+
+});
+});
                       });
                     }
                   });
@@ -276,22 +334,47 @@ export default class TorbertTextAiPlugin extends Plugin {
         }
       };
 
-      this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => addTransformationMenuItems(menu, editor)));
+      this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => diagnostics.guard("main.event_23", () => (addTransformationMenuItems(menu, editor)))));
       this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
+return diagnostics.guard("main.event_24", () => {
         if (file instanceof TFile && file.extension === "md") {
           addTransformationMenuItems(menu, file);
         } else if (file instanceof TFolder) {
           addTransformationMenuItems(menu, file);
         }
-      }));
 
+});
+}));
+
+      this.registerEvent(this.app.workspace.on("files-menu", (menu, entries) => {
+        if (!this.settings.showContextMenuSingle && !this.settings.showContextMenuSubmenu) return;
+        const files = selectedFiles(entries, file => markdownFile(file) && !file.path.split("/").includes(GENERATED_REPORT_FOLDER_NAME));
+        if (!files.length) return;
+        menu.addItem(item => {
+          item.setTitle(`Torbert: Process ${files.length} selected notes`).setIcon("wand");
+          const submenu = (item as MenuItem & { setSubmenu: () => Menu }).setSubmenu();
+          for (const [id, transformation] of Object.entries(transformations)) {
+            if (!this.settings.enabledTransformations[id]) continue;
+            submenu.addItem(action => action.setTitle(transformation.name).onClick(() => {
+              void diagnostics.guard("selection.transform", () => this.applyTransformationToFolder(this.app.vault.getRoot(), id as TransformationId, false, files));
+            }));
+          }
+          for (const preset of this.getCustomPromptPresets()) submenu.addItem(action => action.setTitle(`Prompt: ${preset.name}`).onClick(() => {
+            void diagnostics.guard("selection.prompt", () => this.applyCustomPromptToFolder(this.app.vault.getRoot(), preset, false, files));
+          }));
+        });
+      }));
       this.addSettingTab(new TorbertTextAiSettingTab(this.app, this));
+      this.support.showWelcome();
       this.logger.info("Plugin.onload", "Plugin has loaded successfully.");
     } catch (error) {
-      console.error("Torbert Text AI failed to load:", error);
-      new Notice("Torbert Text AI could not load. Check the developer console.");
+diagnostics.failure("main.caught_extra_1", error);
+      diagnostics?.legacy?.("error", "main.torbert_text_ai_failed_to_load_");
+      new Notice("Torbert Text AI could not load. Reload Obsidian and try again.");
     }
-  }
+
+} catch (diagnosticError1) { diagnostics?.failure?.("main.onload", diagnosticError1); throw diagnosticError1; } finally { diagnosticStartupEnd();  diagnostics?.legacy?.("info", "startup.finished"); diagnosticEnd1(); }
+}
 
   /** Register every transformation in the command palette using category/name labels. */
   private registerTransformationCommands(): void {
@@ -318,7 +401,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           return false;
         }
         if (!checking) {
-          void this.classifyFile(file);
+          void diagnostics.guard("main.background_25", () => (this.classifyFile(file)));
         }
         return true;
       },
@@ -333,7 +416,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           return false;
         }
         if (!checking) {
-          void this.createWeakTitlesReport(folder);
+          void diagnostics.guard("main.background_26", () => (this.createWeakTitlesReport(folder)));
         }
         return true;
       },
@@ -348,7 +431,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           return false;
         }
         if (!checking) {
-          void this.createDuplicateNotesReport(folder);
+          void diagnostics.guard("main.background_27", () => (this.createDuplicateNotesReport(folder)));
         }
         return true;
       },
@@ -356,8 +439,15 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   onunload(): void {
+return diagnostics.guard("main.onunload_28", () => {
+const diagnosticAction9 = () => {
+
     this.logger.info("Plugin.onunload", "Plugin is unloading.");
-  }
+
+}; return diagnostics?.run ? diagnostics.run("main.onunload", diagnosticAction9) : diagnosticAction9();
+
+});
+}
 
   private startProcessingNotice(label: string): ProcessingNotice {
     const startedAt = Date.now();
@@ -369,11 +459,11 @@ export default class TorbertTextAiPlugin extends Plugin {
     cancelButton.type = "button";
     cancelButton.textContent = "Cancel";
     cancelButton.style.marginLeft = "10px";
-    cancelButton.onclick = () => {
+    cancelButton.onclick = diagnostics.wrap("main.dom_1", () => {
       cancelled = true;
       abortController.abort();
       message.textContent = `${label} cancelled.`;
-    };
+    });
     fragment.append(message, cancelButton);
     const notice = new Notice(fragment, 0);
     const update = () => {
@@ -381,7 +471,7 @@ export default class TorbertTextAiPlugin extends Plugin {
       message.textContent = `${label}... ${elapsedSeconds} second(s) elapsed.`;
     };
     update();
-    const intervalId = window.setInterval(update, 1000);
+    const intervalId = window.setInterval(diagnostics.wrap("main.timer_29", update), 1000);
 
     return {
       abortSignal: abortController.signal,
@@ -398,13 +488,29 @@ export default class TorbertTextAiPlugin extends Plugin {
     };
   }
 
+  private async estimateFolderCharacters(files: TFile[]): Promise<string> {
+    const counts = await Promise.allSettled(files.map(async (file) => (await this.app.vault.cachedRead(file)).length));
+    let total = 0;
+    let unreadable = 0;
+    for (const result of counts) {
+      if (result.status === "fulfilled") total += Math.max(1, result.value);
+      else unreadable++;
+    }
+    return `Estimated usage: ${unreadable ? "at least " : ""}${total.toLocaleString()} characters${unreadable ? ` (${unreadable} unreadable file(s))` : ""}. Final usage follows the text processed.`;
+  }
+
   private queueAiTask(label: string, submittedText: string, run: () => Promise<void>): void {
-    void this.aiQueue.enqueue(label, submittedText, async (report) => {
+    void diagnostics.guard("main.background_30", () => (this.aiQueue.enqueue(label, submittedText, async (report) => {
+const diagnosticEnd10 = diagnostics?.start?.("main.background.17435") ?? (() => {});
+try {
+
       this.queueReporter = report;
       report({ label: "Preparing AI request", submittedText });
       try { await run(); }
       finally { this.queueReporter = undefined; }
-    });
+
+} catch (diagnosticError10) { diagnostics?.failure?.("main.background.17435", diagnosticError10); throw diagnosticError10; } finally { diagnosticEnd10(); }
+})));
   }
 
   private friendlyTransformationName(name: string): string {
@@ -428,7 +534,7 @@ export default class TorbertTextAiPlugin extends Plugin {
   private formatAiUsage(usage: AiUsageSummary): string {
     const tokenText = usage.totalTokens > 0 ? this.formatCompactNumber(usage.totalTokens) : "unknown";
     const requestText = usage.requests === 1 ? "1 request" : `${usage.requests} requests`;
-    return `Tokens: ${tokenText} (${requestText}, ${this.formatCompactNumber(usage.inputChars)} chars in, ${this.formatCompactNumber(usage.outputChars)} chars out)`;
+    return `AI usage: ${tokenText} tokens (${requestText}, ${this.formatCompactNumber(usage.inputChars)} input characters, ${this.formatCompactNumber(usage.outputChars)} output characters)`;
   }
 
   private showAiUsage(label: string, usage: AiUsageSummary): void {
@@ -455,14 +561,17 @@ export default class TorbertTextAiPlugin extends Plugin {
    * is unavailable. AI work never proceeds without an authoritative charge.
    */
   async chargeCharacters(charCount: number): Promise<boolean> {
+const diagnosticEnd11 = diagnostics?.start?.("main.chargeCharacters") ?? (() => {});
+try {
+
     const cost = Math.max(1, Math.ceil(charCount));
     if (!this.settings.billingRefreshToken || !this.settings.billingAccountLinked) {
-      new Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
+      new Notice("Torbert: sign in or create an account in plugin settings before running AI.");
       return false;
     }
     await retryPendingSpendEvents(this);
     if (this.settings.pendingSpendEvents.length > 0) {
-      new Notice("Torbert: a previous credit spend is still being reconciled. Please retry when the connection is restored.");
+      new Notice("Torbert: a previous charge is still being confirmed. Please retry when the connection is restored.");
       return false;
     }
     const stableEventId = `consume_${generateEventId()}`;
@@ -482,19 +591,24 @@ export default class TorbertTextAiPlugin extends Plugin {
       return false;
     }
 
-    this.logger.warn("chargeCharacters", "Credit spend status is unknown; blocking the AI call until the stable event is reconciled.");
-    new Notice("Torbert: billing could not be verified. Retry after the connection is restored.");
+    this.logger.warn("chargeCharacters", "A previous charge is awaiting confirmation. The AI request will wait until it is confirmed.");
+    new Notice("Torbert: your account could not be verified. Retry after the connection is restored.");
     return false;
-  }
+
+} catch (diagnosticError11) { diagnostics?.failure?.("main.chargeCharacters", diagnosticError11); throw diagnosticError11; } finally { diagnosticEnd11(); }
+}
 
   /** Preview and apply a transformation to the active editor or current selection. */
   async applyTransformationToEditor(editor: Editor | null, transformationId: TransformationId, queued = false): Promise<void> {
+const diagnosticEnd12 = diagnostics?.start?.("main.applyTransformationToEditor") ?? (() => {});
+try {
+
     let processingNotice: ProcessingNotice | null = null;
     try {
       const targetEditor = editor || this.app.workspace.activeEditor?.editor;
 
       if (!targetEditor) {
-        new Notice("No active editor found.");
+        new Notice("Open a note in the editor first.");
         return;
       }
 
@@ -532,7 +646,10 @@ export default class TorbertTextAiPlugin extends Plugin {
             detail: summarizeTextChange(textToTransform, newText),
           }],
           () => {
-            void (async () => {
+            void diagnostics.guard("main.background_31", () => ((async () => {
+const diagnosticEnd13 = diagnostics?.start?.("main.background.23572") ?? (() => {});
+try {
+
               try {
                 const currentText = selection ? targetEditor.getSelection() : targetEditor.getValue();
                 if (currentText !== textToTransform) {
@@ -552,10 +669,13 @@ export default class TorbertTextAiPlugin extends Plugin {
                 this.showAiUsage(transformation.name, usage);
                 this.logger.info("applyTransformationToEditor", `Applied '${transformationId}'. Notice: ${noticeText}`);
               } catch (error) {
+diagnostics.failure("main.caught_32", error);
                 this.logger.error("applyTransformationToEditor", `Failed to apply '${transformationId}' after preview`, error);
                 new Notice("Error applying the reviewed change. The original text was kept.");
               }
-            })();
+
+} catch (diagnosticError13) { diagnostics?.failure?.("main.background.23572", diagnosticError13); throw diagnosticError13; } finally { diagnosticEnd13(); }
+})()));
           },
         ).open();
         return;
@@ -580,15 +700,21 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.logger.info("applyTransformationToEditor", `Applied '${transformationId}'. Notice: ${noticeText}`);
 
     } catch (error) {
+diagnostics.failure("main.caught_33", error);
       this.logger.error("applyTransformationToEditor", `Failed to apply '${transformationId}'`, error);
-      new Notice(processingNotice?.wasCancelled() ? "Operation cancelled." : "Error applying transformation. Check developer console.");
+      new Notice(processingNotice?.wasCancelled() ? "Operation cancelled." : "The transformation could not be applied. Try again or copy the diagnostic log for support.");
     } finally {
       processingNotice?.close();
     }
-  }
+
+} catch (diagnosticError12) { diagnostics?.failure?.("main.applyTransformationToEditor", diagnosticError12); throw diagnosticError12; } finally { diagnosticEnd12(); }
+}
 
   /** Preview and apply one transformation to a single Markdown file. */
   async applyTransformationToFile(file: TFile, transformationId: TransformationId, queued = false): Promise<void> {
+const diagnosticEnd14 = diagnostics?.start?.("main.applyTransformationToFile") ?? (() => {});
+try {
+
     let processingNotice: ProcessingNotice | null = null;
     try {
       const transformation = transformations[transformationId];
@@ -613,7 +739,10 @@ export default class TorbertTextAiPlugin extends Plugin {
           `Review ${transformation.name}`,
           [{ label: file.path, detail: summarizeTextChange(fileContents, newText) }],
           () => {
-            void (async () => {
+            void diagnostics.guard("main.background_34", () => ((async () => {
+const diagnosticEnd15 = diagnostics?.start?.("main.background.27554") ?? (() => {});
+try {
+
               try {
                 const currentContents = await this.app.vault.read(file);
                 if (currentContents !== fileContents) {
@@ -632,10 +761,13 @@ export default class TorbertTextAiPlugin extends Plugin {
                 this.showAiUsage(`${transformation.name} on ${file.name}`, usage);
                 this.logger.info("applyTransformationToFile", `Applied '${transformationId}' to ${file.path}.`);
               } catch (error) {
+diagnostics.failure("main.caught_35", error);
                 this.logger.error("applyTransformationToFile", `Failed to apply '${transformationId}' after preview`, error);
                 new Notice(`Error applying the reviewed change to ${file.name}. The original text was kept.`);
               }
-            })();
+
+} catch (diagnosticError15) { diagnostics?.failure?.("main.background.27554", diagnosticError15); throw diagnosticError15; } finally { diagnosticEnd15(); }
+})()));
           },
         ).open();
         return;
@@ -656,18 +788,24 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.logger.info("applyTransformationToFile", `Applied '${transformationId}' to ${file.path}.`);
 
     } catch (error) {
+diagnostics.failure("main.caught_36", error);
       this.logger.error("applyTransformationToFile", `Failed to apply '${transformationId}' to file ${file.path}`, error);
-      new Notice(processingNotice?.wasCancelled() ? "Operation cancelled." : `Error processing file ${file.name}. Check developer console.`);
+      new Notice(processingNotice?.wasCancelled() ? "Operation cancelled." : `Could not process ${file.name}. Try again or copy the diagnostic log for support.`);
     } finally {
       processingNotice?.close();
     }
-  }
+
+} catch (diagnosticError14) { diagnostics?.failure?.("main.applyTransformationToFile", diagnosticError14); throw diagnosticError14; } finally { diagnosticEnd14(); }
+}
 
   /** Preview a folder batch, then process files with cancellation and progress. */
-  async applyTransformationToFolder(folder: TFolder, transformationId: TransformationId, queued = false): Promise<void> {
+  async applyTransformationToFolder(folder: TFolder, transformationId: TransformationId, queued = false, selected?: TFile[]): Promise<void> {
+const diagnosticEnd16 = diagnostics?.start?.("main.applyTransformationToFolder") ?? (() => {});
+try {
+
     let processingNotice: ProcessingNotice | null = null;
     try {
-      const files = this.getMarkdownFilesInFolder(folder);
+      const files = selected ?? this.getMarkdownFilesInFolder(folder);
 
       if (files.length === 0) {
         new Notice(`No Markdown files found in ${folder.name}.`);
@@ -675,7 +813,9 @@ export default class TorbertTextAiPlugin extends Plugin {
       }
 
       if (transformations[transformationId]?.requiresAi && !queued) {
-        this.queueAiTask(`${transformations[transformationId]?.name || transformationId} in ${folder.name}`, `Folder: ${folder.path}\n${files.length} Markdown file(s)`, () => this.applyTransformationToFolder(folder, transformationId, true));
+        const estimate = await this.estimateFolderCharacters(files);
+        new Notice(estimate, 8000);
+        this.queueAiTask(`${transformations[transformationId]?.name || transformationId} in ${folder.name}`, `Folder: ${folder.path}\n${files.length} Markdown file(s)\n${estimate}`, () => this.applyTransformationToFolder(folder, transformationId, true, selected));
         return;
       }
 
@@ -715,6 +855,7 @@ export default class TorbertTextAiPlugin extends Plugin {
 
           processedCount++;
         } catch (error) {
+diagnostics.failure("main.caught_37", error);
           failedCount++;
           this.logger.error("applyTransformationToFolder", `Failed '${transformationId}' on ${file.path}`, error);
         }
@@ -726,7 +867,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           detail: summarizeTextChange(item.oldText, item.newText),
         }));
         new BatchPreviewModal(this.app, `Review ${transformations[transformationId]?.name || transformationId}`, previewItems, () => {
-          void this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount);
+          void diagnostics.guard("main.background_38", () => (this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount)));
         }).open();
         return;
       }
@@ -738,12 +879,15 @@ export default class TorbertTextAiPlugin extends Plugin {
       this.logger.info("applyTransformationToFolder", `Applied '${transformationId}' to ${processedCount} file(s) in ${folder.path}. Failed: ${failedCount}.`);
 
     } catch (error) {
+diagnostics.failure("main.caught_39", error);
       this.logger.error("applyTransformationToFolder", `Failed to apply '${transformationId}' to folder ${folder.path}`, error);
-      new Notice(processingNotice?.wasCancelled() ? "Operation cancelled." : `Error processing folder ${folder.name}. Check developer console.`);
+      new Notice(processingNotice?.wasCancelled() ? "Operation cancelled." : `Could not process ${folder.name}. Try again or copy the diagnostic log for support.`);
     } finally {
       processingNotice?.close();
     }
-  }
+
+} catch (diagnosticError16) { diagnostics?.failure?.("main.applyTransformationToFolder", diagnosticError16); throw diagnosticError16; } finally { diagnosticEnd16(); }
+}
 
   private async applyPendingFolderWrites(
     folder: TFolder,
@@ -753,6 +897,9 @@ export default class TorbertTextAiPlugin extends Plugin {
     processedCount: number,
     failedCount: number,
   ): Promise<void> {
+const diagnosticEnd17 = diagnostics?.start?.("main.applyPendingFolderWrites") ?? (() => {});
+try {
+
     const processingNotice = this.startProcessingNotice(`Applying ${pendingWrites.length} file update(s)`);
     const reportItems: BatchReportItem[] = [];
 
@@ -774,6 +921,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           await this.app.vault.modify(pendingWrite.file, pendingWrite.newText);
           reportItems.push({ path: pendingWrite.file.path, status: "changed", message: transformations[transformationId]?.name || transformationId });
         } catch (error) {
+diagnostics.failure("main.caught_40", error);
           failedCount++;
           reportItems.push({ path: pendingWrite.file.path, status: "failed", message: String(error) });
           this.logger.error("applyPendingFolderWrites", `Failed '${transformationId}' on ${pendingWrite.file.path}`, error);
@@ -785,12 +933,15 @@ export default class TorbertTextAiPlugin extends Plugin {
       new Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
 
     } catch (error) {
+diagnostics.failure("main.caught_41", error);
       this.logger.error("applyPendingFolderWrites", `Cancelled or failed applying '${transformationId}' in ${folder.path}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying changes in ${folder.name}.`);
     } finally {
       processingNotice.close();
     }
-  }
+
+} catch (diagnosticError17) { diagnostics?.failure?.("main.applyPendingFolderWrites", diagnosticError17); throw diagnosticError17; } finally { diagnosticEnd17(); }
+}
 
   private getMarkdownFilesInFolder(folder: TFolder): TFile[] {
     if (folder.name === GENERATED_REPORT_FOLDER_NAME) {
@@ -811,10 +962,18 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   async classifyFile(file: TFile): Promise<void> {
+const diagnosticEnd18 = diagnostics?.start?.("main.classifyFile") ?? (() => {});
+try {
+
     await this.classifyFiles([file], file.parent?.path || "");
-  }
+
+} catch (diagnosticError18) { diagnostics?.failure?.("main.classifyFile", diagnosticError18); throw diagnosticError18; } finally { diagnosticEnd18(); }
+}
 
   async classifyFilesInFolder(folder: TFolder): Promise<void> {
+const diagnosticEnd19 = diagnostics?.start?.("main.classifyFilesInFolder") ?? (() => {});
+try {
+
     const files = this.getMarkdownFilesInFolder(folder);
     if (files.length === 0) {
       new Notice(`No Markdown files found in ${folder.name}.`);
@@ -822,11 +981,18 @@ export default class TorbertTextAiPlugin extends Plugin {
     }
 
     await this.classifyFiles(files, folder.path);
-  }
+
+} catch (diagnosticError19) { diagnostics?.failure?.("main.classifyFilesInFolder", diagnosticError19); throw diagnosticError19; } finally { diagnosticEnd19(); }
+}
 
   private async classifyFiles(files: TFile[], sourcePath: string, queued = false): Promise<void> {
+const diagnosticEnd20 = diagnostics?.start?.("main.classifyFiles") ?? (() => {});
+try {
+
     if (!queued) {
-      this.queueAiTask(`AI folder classification (${files.length} file${files.length === 1 ? "" : "s"})`, `Source: ${sourcePath || "current note"}\n${files.length} Markdown file(s)`, () => this.classifyFiles(files, sourcePath, true));
+      const estimate = await this.estimateFolderCharacters(files);
+      new Notice(estimate, 8000);
+      this.queueAiTask(`AI folder classification (${files.length} file${files.length === 1 ? "" : "s"})`, `Source: ${sourcePath || "current note"}\n${files.length} Markdown file(s)\n${estimate}`, () => this.classifyFiles(files, sourcePath, true));
       return;
     }
     const processingNotice = this.startProcessingNotice(`Processing AI classification for ${files.length} file(s)`);
@@ -861,11 +1027,13 @@ export default class TorbertTextAiPlugin extends Plugin {
             snapshots.push({ path: file.path, currentPath: newPath, content: fileContents });
           }
         } catch (error) {
+diagnostics.failure("main.caught_42", error);
           failedCount++;
           this.logger.error("classifyFiles", `Failed to classify ${file.path}`, error);
         }
       }
     } catch (error) {
+diagnostics.failure("main.caught_43", error);
       this.logger.error("classifyFiles", `Cancelled or failed classification for ${sourcePath}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : "Error classifying files.");
       return;
@@ -883,9 +1051,11 @@ export default class TorbertTextAiPlugin extends Plugin {
       label: item.file.path,
       detail: `Proposed path: ${item.newPath}`,
     })), () => {
-      void this.applyMovePlan("AI Folder Classification", sourcePath, movePlan, snapshots, failedCount);
+      void diagnostics.guard("main.background_44", () => (this.applyMovePlan("AI Folder Classification", sourcePath, movePlan, snapshots, failedCount)));
     }).open();
-  }
+
+} catch (diagnosticError20) { diagnostics?.failure?.("main.classifyFiles", diagnosticError20); throw diagnosticError20; } finally { diagnosticEnd20(); }
+}
 
   private async applyMovePlan(
     label: string,
@@ -894,6 +1064,9 @@ export default class TorbertTextAiPlugin extends Plugin {
     snapshots: OperationHistorySnapshot[],
     failedCount: number,
   ): Promise<void> {
+const diagnosticEnd21 = diagnostics?.start?.("main.applyMovePlan") ?? (() => {});
+try {
+
     const processingNotice = this.startProcessingNotice(`Applying ${movePlan.length} move(s)`);
     const reportItems: BatchReportItem[] = [];
     let movedCount = 0;
@@ -912,6 +1085,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           movedCount++;
           reportItems.push({ path: oldPath, newPath: item.newPath, status: "moved" });
         } catch (error) {
+diagnostics.failure("main.caught_45", error);
           failedCount++;
           reportItems.push({ path: item.file.path, newPath: item.newPath, status: "failed", message: String(error) });
           this.logger.error("applyMovePlan", `Failed to move ${item.file.path} to ${item.newPath}`, error);
@@ -921,14 +1095,20 @@ export default class TorbertTextAiPlugin extends Plugin {
       await this.createBatchReport(label, sourcePath, reportItems);
       new Notice(`Moved ${movedCount} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
     } catch (error) {
+diagnostics.failure("main.caught_46", error);
       this.logger.error("applyMovePlan", `Cancelled or failed move plan for ${sourcePath}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : "Error applying move plan.");
     } finally {
       processingNotice.close();
     }
-  }
+
+} catch (diagnosticError21) { diagnostics?.failure?.("main.applyMovePlan", diagnosticError21); throw diagnosticError21; } finally { diagnosticEnd21(); }
+}
 
   async createWeakTitlesReport(folder: TFolder): Promise<void> {
+const diagnosticEnd22 = diagnostics?.start?.("main.createWeakTitlesReport") ?? (() => {});
+try {
+
     const processingNotice = this.startProcessingNotice(`Creating weak title report for ${folder.name}`);
     try {
       const items: string[] = [];
@@ -952,18 +1132,24 @@ export default class TorbertTextAiPlugin extends Plugin {
       const reportPath = await this.createReportNote(folder.path, "weak-titles", body);
       new Notice(`Weak title report created: ${reportPath}`);
     } catch (error) {
+diagnostics.failure("main.caught_47", error);
       this.logger.error("createWeakTitlesReport", `Failed to create report for ${folder.path}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error creating weak title report for ${folder.name}.`);
     } finally {
       processingNotice.close();
     }
-  }
+
+} catch (diagnosticError22) { diagnostics?.failure?.("main.createWeakTitlesReport", diagnosticError22); throw diagnosticError22; } finally { diagnosticEnd22(); }
+}
 
   async createDuplicateNotesReport(folder: TFolder): Promise<void> {
+const diagnosticEnd23 = diagnostics?.start?.("main.createDuplicateNotesReport") ?? (() => {});
+try {
+
     const processingNotice = this.startProcessingNotice(`Creating duplicate note report for ${folder.name}`);
     try {
       const files = this.getMarkdownFilesInFolder(folder);
-      const readResults = await Promise.allSettled(files.map(async (file) => ({ file, content: await this.app.vault.read(file) })));
+      const readResults = await Promise.allSettled(files.map(async (file) => { const diagnosticEnd24 = diagnostics?.start?.("main.background.43557") ?? (() => {}); try { return await (({ file, content: await this.app.vault.read(file) })); } catch (diagnosticError24) { diagnostics?.failure?.("main.background.43557", diagnosticError24); throw diagnosticError24; } finally { diagnosticEnd24(); } }));
       const contents = readResults
         .filter((result): result is PromiseFulfilledResult<{ file: TFile; content: string }> => result.status === "fulfilled")
         .map((result) => result.value);
@@ -993,14 +1179,20 @@ export default class TorbertTextAiPlugin extends Plugin {
       const reportPath = await this.createReportNote(folder.path, "duplicate-note-detection", body);
       new Notice(`Duplicate note report created: ${reportPath}`);
     } catch (error) {
+diagnostics.failure("main.caught_48", error);
       this.logger.error("createDuplicateNotesReport", `Failed to create report for ${folder.path}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error creating duplicate note report for ${folder.name}.`);
     } finally {
       processingNotice.close();
     }
-  }
+
+} catch (diagnosticError23) { diagnostics?.failure?.("main.createDuplicateNotesReport", diagnosticError23); throw diagnosticError23; } finally { diagnosticEnd23(); }
+}
 
   async applyCustomPromptToFile(file: TFile, preset: CustomPromptPreset, queued = false): Promise<void> {
+const diagnosticEnd25 = diagnostics?.start?.("main.applyCustomPromptToFile") ?? (() => {});
+try {
+
     if (!queued) {
       const contents = await this.app.vault.read(file);
       this.queueAiTask(`Prompt ${preset.name} on ${file.name}`, contents, () => this.applyCustomPromptToFile(file, preset, true));
@@ -1021,7 +1213,10 @@ export default class TorbertTextAiPlugin extends Plugin {
           `Review prompt: ${preset.name}`,
           [{ label: file.path, detail: summarizeTextChange(fileContents, newText) }],
           () => {
-            void (async () => {
+            void diagnostics.guard("main.background_49", () => ((async () => {
+const diagnosticEnd26 = diagnostics?.start?.("main.background.46578") ?? (() => {});
+try {
+
               try {
                 const currentContents = await this.app.vault.read(file);
                 if (currentContents !== fileContents) {
@@ -1033,10 +1228,13 @@ export default class TorbertTextAiPlugin extends Plugin {
                 new Notice(`Applied prompt preset to ${file.name}.`);
                 this.showAiUsage(`Prompt ${preset.name} on ${file.name}`, usage);
               } catch (error) {
+diagnostics.failure("main.caught_50", error);
                 this.logger.error("applyCustomPromptToFile", `Failed prompt '${preset.name}' after preview`, error);
                 new Notice(`Error applying the reviewed change to ${file.name}. The original text was kept.`);
               }
-            })();
+
+} catch (diagnosticError26) { diagnostics?.failure?.("main.background.46578", diagnosticError26); throw diagnosticError26; } finally { diagnosticEnd26(); }
+})()));
           },
         ).open();
         return;
@@ -1054,21 +1252,29 @@ export default class TorbertTextAiPlugin extends Plugin {
         this.showAiUsage(`Prompt ${preset.name} on ${file.name}`, usage);
       }
     } catch (error) {
+diagnostics.failure("main.caught_51", error);
       this.logger.error("applyCustomPromptToFile", `Failed prompt '${preset.name}' on ${file.path}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying prompt preset to ${file.name}.`);
     } finally {
       processingNotice.close();
     }
-  }
 
-  async applyCustomPromptToFolder(folder: TFolder, preset: CustomPromptPreset, queued = false): Promise<void> {
+} catch (diagnosticError25) { diagnostics?.failure?.("main.applyCustomPromptToFile", diagnosticError25); throw diagnosticError25; } finally { diagnosticEnd25(); }
+}
+
+  async applyCustomPromptToFolder(folder: TFolder, preset: CustomPromptPreset, queued = false, selected?: TFile[]): Promise<void> {
+const diagnosticEnd27 = diagnostics?.start?.("main.applyCustomPromptToFolder") ?? (() => {});
+try {
+
     if (!queued) {
-      const queuedFiles = this.getMarkdownFilesInFolder(folder);
-      this.queueAiTask(`Prompt ${preset.name} in ${folder.name}`, `Folder: ${folder.path}\n${queuedFiles.length} Markdown file(s)`, () => this.applyCustomPromptToFolder(folder, preset, true));
+      const queuedFiles = selected ?? this.getMarkdownFilesInFolder(folder);
+      const estimate = await this.estimateFolderCharacters(queuedFiles);
+      new Notice(estimate, 8000);
+      this.queueAiTask(`Prompt ${preset.name} in ${folder.name}`, `Folder: ${folder.path}\n${queuedFiles.length} Markdown file(s)\n${estimate}`, () => this.applyCustomPromptToFolder(folder, preset, true, selected));
       return;
     }
     let processingNotice: ProcessingNotice | null = null;
-    const files = this.getMarkdownFilesInFolder(folder);
+    const files = selected ?? this.getMarkdownFilesInFolder(folder);
     const pendingWrites: Array<{ file: TFile; oldText: string; newText: string }> = [];
     const snapshots: OperationHistorySnapshot[] = [];
     let failedCount = 0;
@@ -1093,11 +1299,13 @@ export default class TorbertTextAiPlugin extends Plugin {
             pendingWrites.push({ file, oldText: fileContents, newText });
           }
         } catch (error) {
+diagnostics.failure("main.caught_52", error);
           failedCount++;
           this.logger.error("applyCustomPromptToFolder", `Failed prompt '${preset.name}' on ${file.path}`, error);
         }
       }
     } catch (error) {
+diagnostics.failure("main.caught_53", error);
       this.logger.error("applyCustomPromptToFolder", `Cancelled or failed prompt '${preset.name}' in ${folder.path}`, error);
       new Notice(processingNotice?.wasCancelled() ? "Operation cancelled." : `Error applying prompt preset in ${folder.name}.`);
       return;
@@ -1115,9 +1323,11 @@ export default class TorbertTextAiPlugin extends Plugin {
       label: item.file.path,
       detail: summarizeTextChange(item.oldText, item.newText),
     })), () => {
-      void this.applyCustomPromptFolderWrites(folder.path, preset, pendingWrites, snapshots, failedCount);
+      void diagnostics.guard("main.background_54", () => (this.applyCustomPromptFolderWrites(folder.path, preset, pendingWrites, snapshots, failedCount)));
     }).open();
-  }
+
+} catch (diagnosticError27) { diagnostics?.failure?.("main.applyCustomPromptToFolder", diagnosticError27); throw diagnosticError27; } finally { diagnosticEnd27(); }
+}
 
   private async applyCustomPromptFolderWrites(
     sourcePath: string,
@@ -1126,6 +1336,9 @@ export default class TorbertTextAiPlugin extends Plugin {
     snapshots: OperationHistorySnapshot[],
     failedCount: number,
   ): Promise<void> {
+const diagnosticEnd28 = diagnostics?.start?.("main.applyCustomPromptFolderWrites") ?? (() => {});
+try {
+
     const processingNotice = this.startProcessingNotice(`Applying prompt changes to ${pendingWrites.length} file(s)`);
     const reportItems: BatchReportItem[] = [];
 
@@ -1143,6 +1356,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           await this.app.vault.modify(pendingWrite.file, pendingWrite.newText);
           reportItems.push({ path: pendingWrite.file.path, status: "changed", message: preset.name });
         } catch (error) {
+diagnostics.failure("main.caught_55", error);
           failedCount++;
           reportItems.push({ path: pendingWrite.file.path, status: "failed", message: String(error) });
         }
@@ -1151,15 +1365,21 @@ export default class TorbertTextAiPlugin extends Plugin {
       await this.createBatchReport(`Prompt ${preset.name}`, sourcePath, reportItems);
       new Notice(`Applied prompt preset to ${pendingWrites.length} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
     } catch (error) {
+diagnostics.failure("main.caught_56", error);
       this.logger.error("applyCustomPromptFolderWrites", `Cancelled or failed applying prompt '${preset.name}' in ${sourcePath}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying prompt changes.`);
     } finally {
       processingNotice.close();
     }
-  }
+
+} catch (diagnosticError28) { diagnostics?.failure?.("main.applyCustomPromptFolderWrites", diagnosticError28); throw diagnosticError28; } finally { diagnosticEnd28(); }
+}
 
   /** Restore the most recent saved operation snapshot after explicit confirmation. */
   async restoreLastOperation(): Promise<void> {
+const diagnosticEnd29 = diagnostics?.start?.("main.restoreLastOperation") ?? (() => {});
+try {
+
     const lastOperation = this.settings.operationHistory[0];
 
     if (!lastOperation) {
@@ -1178,7 +1398,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           if (snapshot.editorOnly) {
             const editor = this.app.workspace.activeEditor?.editor;
             if (!editor) {
-              throw new Error("No active editor found for editor-only restore.");
+              throw new Error("Open the original note in the editor to restore this change.");
             }
             editor.setValue(snapshot.content);
             restoredCount++;
@@ -1207,6 +1427,7 @@ export default class TorbertTextAiPlugin extends Plugin {
           await this.app.vault.create(snapshot.path, snapshot.content);
           restoredCount++;
         } catch (error) {
+diagnostics.failure("main.caught_57", error);
           failedCount++;
           this.logger.error("restoreLastOperation", `Failed to restore ${snapshot.path}`, error);
         }
@@ -1223,9 +1444,14 @@ export default class TorbertTextAiPlugin extends Plugin {
     }
 
     new Notice(`Restore incomplete: ${restoredCount} item(s) restored and ${failedCount} failed. The operation remains available to retry.`);
-  }
+
+} catch (diagnosticError29) { diagnostics?.failure?.("main.restoreLastOperation", diagnosticError29); throw diagnosticError29; } finally { diagnosticEnd29(); }
+}
 
   private async recordEditorSnapshot(label: string, editor: Editor): Promise<void> {
+const diagnosticEnd30 = diagnostics?.start?.("main.recordEditorSnapshot") ?? (() => {});
+try {
+
     const activeFile = this.app.workspace.getActiveFile();
 
     if (activeFile) {
@@ -1241,9 +1467,14 @@ export default class TorbertTextAiPlugin extends Plugin {
       content: editor.getValue(),
       editorOnly: true,
     }]);
-  }
+
+} catch (diagnosticError30) { diagnostics?.failure?.("main.recordEditorSnapshot", diagnosticError30); throw diagnosticError30; } finally { diagnosticEnd30(); }
+}
 
   private async recordOperation(label: string, snapshots: OperationHistorySnapshot[]): Promise<void> {
+const diagnosticEnd31 = diagnostics?.start?.("main.recordOperation") ?? (() => {});
+try {
+
     if (snapshots.length === 0) {
       return;
     }
@@ -1260,9 +1491,14 @@ export default class TorbertTextAiPlugin extends Plugin {
       ...(this.settings.operationHistory || []),
     ].slice(0, 20);
     await this.saveSettings();
-  }
+
+} catch (diagnosticError31) { diagnostics?.failure?.("main.recordOperation", diagnosticError31); throw diagnosticError31; } finally { diagnosticEnd31(); }
+}
 
   private async getAvailablePathInFolder(folderPath: string, fileName: string, reservedPaths = new Set<string>()): Promise<string> {
+const diagnosticEnd32 = diagnostics?.start?.("main.getAvailablePathInFolder") ?? (() => {});
+try {
+
     const cleanFolderPath = sanitizeFolderName(folderPath);
     const extension = ".md";
     const baseName = fileName.replace(/\.md$/i, "");
@@ -1275,10 +1511,15 @@ export default class TorbertTextAiPlugin extends Plugin {
       suffix++;
     }
 
-    return candidatePath;
-  }
+    return await (candidatePath);
+
+} catch (diagnosticError32) { diagnostics?.failure?.("main.getAvailablePathInFolder", diagnosticError32); throw diagnosticError32; } finally { diagnosticEnd32(); }
+}
 
   private async ensureFolderPath(folderPath: string): Promise<void> {
+const diagnosticEnd33 = diagnostics?.start?.("main.ensureFolderPath") ?? (() => {});
+try {
+
     if (!folderPath) {
       return;
     }
@@ -1292,7 +1533,9 @@ export default class TorbertTextAiPlugin extends Plugin {
         await this.app.vault.createFolder(currentPath);
       }
     }
-  }
+
+} catch (diagnosticError33) { diagnostics?.failure?.("main.ensureFolderPath", diagnosticError33); throw diagnosticError33; } finally { diagnosticEnd33(); }
+}
 
   private getCustomPromptPresets(): CustomPromptPreset[] {
     return (this.settings.customPromptPresets || [])
@@ -1304,6 +1547,9 @@ export default class TorbertTextAiPlugin extends Plugin {
   }
 
   private async createBatchReport(label: string, sourcePath: string, items: BatchReportItem[]): Promise<string> {
+const diagnosticEnd34 = diagnostics?.start?.("main.createBatchReport") ?? (() => {});
+try {
+
     const lines = [
       `# ${label} Report`,
       "",
@@ -1321,10 +1567,15 @@ export default class TorbertTextAiPlugin extends Plugin {
       }),
     ];
 
-    return this.createReportNote(sourcePath, "torbert-batch-report", lines.join("\n"));
-  }
+    return await (this.createReportNote(sourcePath, "torbert-batch-report", lines.join("\n")));
+
+} catch (diagnosticError34) { diagnostics?.failure?.("main.createBatchReport", diagnosticError34); throw diagnosticError34; } finally { diagnosticEnd34(); }
+}
 
   private async createReportNote(sourcePath: string, slug: string, content: string): Promise<string> {
+const diagnosticEnd35 = diagnostics?.start?.("main.createReportNote") ?? (() => {});
+try {
+
     const reportsFolder = sourcePath && sourcePath !== "/" ? `${sourcePath}/Torbert Reports` : "Torbert Reports";
     await this.ensureFolderPath(reportsFolder);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -1337,10 +1588,15 @@ export default class TorbertTextAiPlugin extends Plugin {
     }
 
     await this.app.vault.create(path, `${content.trim()}\n`);
-    return path;
-  }
+    return await (path);
+
+} catch (diagnosticError35) { diagnostics?.failure?.("main.createReportNote", diagnosticError35); throw diagnosticError35; } finally { diagnosticEnd35(); }
+}
 
   async loadSettings(): Promise<void> {
+const diagnosticEnd36 = diagnostics?.start?.("main.loadSettings") ?? (() => {});
+try {
+
     const loadedSettings = await this.loadData();
 
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
@@ -1369,14 +1625,21 @@ export default class TorbertTextAiPlugin extends Plugin {
     this.settings.freeCharacters = 0;
     this.settings.purchasedCharacters = typeof this.settings.purchasedCharacters === "number" ? this.settings.purchasedCharacters : DEFAULT_SETTINGS.purchasedCharacters;
 
-  }
+
+} catch (diagnosticError36) { diagnostics?.failure?.("main.loadSettings", diagnosticError36); throw diagnosticError36; } finally { diagnosticEnd36(); }
+}
 
   async saveSettings(): Promise<void> {
+const diagnosticEnd37 = diagnostics?.start?.("main.saveSettings") ?? (() => {});
+try {
+
     await this.saveData(this.settings);
 
     if (this.logger) {
       this.logger.setEnabled(this.settings.enableLogging);
     }
-  }
+
+} catch (diagnosticError37) { diagnostics?.failure?.("main.saveSettings", diagnosticError37); throw diagnosticError37; } finally { diagnosticEnd37(); }
+}
 
 }

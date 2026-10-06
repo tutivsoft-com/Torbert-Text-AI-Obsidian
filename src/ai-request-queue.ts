@@ -1,3 +1,4 @@
+import { diagnostics } from "./diagnostics";
 import { App, ButtonComponent, Modal, Notice } from "obsidian";
 
 export interface AiQueueUpdate {
@@ -32,40 +33,62 @@ export class AiRequestQueue extends Modal {
   private timer: number | null = null;
   private lastCompletion = "";
 
-  constructor(app: App, private readonly appName: string) { super(app); }
+  constructor(app: App, private readonly appName: string, private readonly shouldAutoOpen: () => boolean = () => false) { super(app); }
 
   onOpen(): void {
+return diagnostics.guard("ai-request-queue.onOpen_1", () => {
+const diagnosticAction1 = () => {
+
     this.opened = true;
     this.startTimer();
     this.render();
-  }
+
+}; return diagnostics?.run ? diagnostics.run("ai-request-queue.onOpen", diagnosticAction1) : diagnosticAction1();
+
+});
+}
 
   onClose(): void {
+return diagnostics.guard("ai-request-queue.onClose_2", () => {
+const diagnosticAction2 = () => {
+
     this.opened = false;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     this.contentEl.empty();
-  }
+
+}; return diagnostics?.run ? diagnostics.run("ai-request-queue.onClose", diagnosticAction2) : diagnosticAction2();
+
+});
+}
 
   enqueue<T>(label: string, submittedText: string, run: (report: QueueReporter) => Promise<T>): Promise<QueueResult<T>> {
-    return new Promise((resolve) => {
+const diagnosticAction3 = () => {
+
+    return new Promise<QueueResult<T>>((resolve) => {
       const job: QueueJob<T> = {
         id: this.nextId++, label, submittedText, queuedAt: Date.now(), statusLabel: "Waiting",
         run, resolve,
       };
       this.pending.push(job);
-      if (!this.opened) this.open();
+      if (!this.opened && this.shouldAutoOpen()) this.open();
+      if (!this.opened) new Notice(`${this.appName}: ${label}${this.running ? " queued" : " started"}.`);
       this.render();
-      void this.drain();
+      void diagnostics.guard("ai-request-queue.background_3", () => (this.drain()));
     });
-  }
+
+}; return diagnostics?.run ? diagnostics.run("ai-request-queue.enqueue", diagnosticAction3) : diagnosticAction3();
+}
 
   private startTimer(): void {
     if (this.timer !== null) window.clearInterval(this.timer);
-    this.timer = window.setInterval(() => this.render(), 1000);
+    this.timer = window.setInterval(() => diagnostics.guard("ai-request-queue.timer_4", () => (this.render())), 1000);
   }
 
   private async drain(): Promise<void> {
+const diagnosticEnd4 = diagnostics?.start?.("ai-request-queue.drain") ?? (() => {});
+try {
+
     if (this.running) return;
     this.running = true;
     try {
@@ -90,6 +113,7 @@ export class AiRequestQueue extends Modal {
           new Notice(`${this.appName}: ${this.lastCompletion}`, 4000);
           job.resolve({ status: "completed", value });
         } catch (error) {
+diagnostics.failure("ai-request-queue.caught_5", error);
           const elapsed = Math.max(0, Math.floor((Date.now() - job.startedAt) / 1000));
           const detail = error instanceof Error ? error.message : "Unknown error";
           this.lastCompletion = `${job.label} failed after ${elapsed} second${elapsed === 1 ? "" : "s"}: ${detail}`;
@@ -103,7 +127,9 @@ export class AiRequestQueue extends Modal {
     } finally {
       this.running = false;
     }
-  }
+
+} catch (diagnosticError4) { diagnostics?.failure?.("ai-request-queue.drain", diagnosticError4); throw diagnosticError4; } finally { diagnosticEnd4(); }
+}
 
   private clearWaiting(): void {
     const removed = this.pending.splice(0);
@@ -116,6 +142,8 @@ export class AiRequestQueue extends Modal {
   }
 
   private render(): void {
+const diagnosticAction5 = () => {
+
     if (!this.opened) return;
     const root = this.contentEl;
     root.empty();
@@ -143,8 +171,16 @@ export class AiRequestQueue extends Modal {
     }
     if (this.lastCompletion) root.createEl("p", { text: this.lastCompletion });
     const footer = root.createDiv();
-    new ButtonComponent(footer).setButtonText("Clear waiting requests").setWarning().setDisabled(this.pending.length === 0).onClick(() => this.clearWaiting());
-    new ButtonComponent(footer).setButtonText("Close").onClick(() => this.close());
+    new ButtonComponent(footer).setButtonText("Clear waiting requests").setWarning().setDisabled(this.pending.length === 0).onClick(() => {
+return diagnostics.guard("ai-request-queue.control_6", () => { const diagnosticAction6 = () => (this.clearWaiting()); return diagnostics?.run ? diagnostics.run("control.clear_waiting_requests.onClick", diagnosticAction6) : diagnosticAction6();
+});
+});
+    new ButtonComponent(footer).setButtonText("Close").onClick(() => {
+return diagnostics.guard("ai-request-queue.control_7", () => { const diagnosticAction7 = () => (this.close()); return diagnostics?.run ? diagnostics.run("control.close.onClick", diagnosticAction7) : diagnosticAction7();
+});
+});
     root.createEl("p", { text: "Clearing removes waiting requests. The active request will finish." }).style.color = "var(--text-muted)";
-  }
+
+}; return diagnostics?.run ? diagnostics.run("ai-request-queue.render", diagnosticAction5) : diagnosticAction5();
+}
 }

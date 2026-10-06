@@ -1,3 +1,4 @@
+import { diagnostics } from "./diagnostics";
 import type { PluginSettings } from "./types";
 
 // --- Pattern B remote key manifest (TutivSoft.OpenAiKeyManifest port) ---
@@ -48,8 +49,11 @@ function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
 }
 
 async function decryptSecretEnvelope(envelope: EncryptedSecretEnvelope, passphrase: string): Promise<string> {
+const diagnosticEnd1 = diagnostics?.start?.("ai.decryptSecretEnvelope") ?? (() => {});
+try {
+
   if (envelope.x !== "AES-256-GCM" || envelope.w !== "PBKDF2-HMAC-SHA256") {
-    throw new Error(`Unsupported manifest envelope algorithm/kdf: ${envelope.x} / ${envelope.w}`);
+    throw new Error(`The AI connection could not be initialized. Update the plugin or contact support.`);
   }
 
   const keyMaterial = await window.crypto.subtle.importKey(
@@ -85,7 +89,9 @@ async function decryptSecretEnvelope(envelope: EncryptedSecretEnvelope, passphra
     ciphertextAndTag,
   );
 
-  return new TextDecoder().decode(plaintext);
+  return await (new TextDecoder().decode(plaintext));
+
+} catch (diagnosticError1) { diagnostics?.failure?.("ai.decryptSecretEnvelope", diagnosticError1); throw diagnosticError1; } finally { diagnosticEnd1(); }
 }
 
 function selectSlot(manifest: RemoteKeyManifest, wantState: "active" | "next"): RemoteKeySlot | null {
@@ -100,21 +106,30 @@ function selectSlot(manifest: RemoteKeyManifest, wantState: "active" | "next"): 
 }
 
 async function fetchRemoteManifest(url: string): Promise<RemoteKeyManifest> {
-  const response = await fetch(url);
+const diagnosticEnd2 = diagnostics?.start?.("ai.fetchRemoteManifest") ?? (() => {});
+try {
+
+  const response = await (diagnostics?.request?.("network.ai.fetchRemoteManifest", fetch, url) ?? fetch(url));
   if (!response.ok) {
-    throw new Error(`Manifest fetch failed: HTTP ${response.status}`);
+    throw new Error(`The AI connection is unavailable. Check your connection and try again.`);
   }
-  return await response.json() as RemoteKeyManifest;
+  return await (await response.json() as RemoteKeyManifest);
+
+} catch (diagnosticError2) { diagnostics?.failure?.("ai.fetchRemoteManifest", diagnosticError2); throw diagnosticError2; } finally { diagnosticEnd2(); }
 }
 
 async function tryDecryptManifestKey(manifest: RemoteKeyManifest, source: string): Promise<string> {
+const diagnosticEnd3 = diagnostics?.start?.("ai.tryDecryptManifestKey") ?? (() => {});
+try {
+
   const active = selectSlot(manifest, "active");
   if (active) {
     try {
       const key = (await decryptSecretEnvelope(active.v, REMOTE_MANIFEST_PASSPHRASE)).trim();
-      if (key) return key;
+      if (key) return await (key);
     } catch (error) {
-      console.warn("Torbert Text AI: active manifest slot failed to decrypt", source, error);
+diagnostics.failure("ai.caught_extra_1", error);
+      diagnostics?.legacy?.("warn", "ai.torbert_text_ai_active_manifest_slot_failed_to_decrypt");
     }
   }
 
@@ -122,13 +137,16 @@ async function tryDecryptManifestKey(manifest: RemoteKeyManifest, source: string
   if (next) {
     try {
       const key = (await decryptSecretEnvelope(next.v, REMOTE_MANIFEST_PASSPHRASE)).trim();
-      if (key) return key;
+      if (key) return await (key);
     } catch (error) {
-      console.warn("Torbert Text AI: next manifest slot failed to decrypt", source, error);
+diagnostics.failure("ai.caught_extra_2", error);
+      diagnostics?.legacy?.("warn", "ai.torbert_text_ai_next_manifest_slot_failed_to_decrypt");
     }
   }
 
-  throw new Error("Remote key manifest did not decrypt to a usable key.");
+  throw new Error("The AI connection is unavailable. Check your connection and try again.");
+
+} catch (diagnosticError3) { diagnostics?.failure?.("ai.tryDecryptManifestKey", diagnosticError3); throw diagnosticError3; } finally { diagnosticEnd3(); }
 }
 
 // Cached once resolved so every AI call doesn't re-fetch the manifest; cleared implicitly
@@ -141,27 +159,33 @@ let remoteApiKeyCache: string | null = null;
  * unreachable or fails to decrypt (key rotation / relocation support).
  */
 async function fetchRemoteApiKey(): Promise<string> {
+const diagnosticEnd4 = diagnostics?.start?.("ai.fetchRemoteApiKey") ?? (() => {});
+try {
+
   if (remoteApiKeyCache) {
-    return remoteApiKeyCache;
+    return await (remoteApiKeyCache);
   }
 
   try {
     const manifest = await fetchRemoteManifest(REMOTE_MANIFEST_URL);
     const key = await tryDecryptManifestKey(manifest, REMOTE_MANIFEST_URL);
     remoteApiKeyCache = key;
-    return key;
+    return await (key);
   } catch (primaryError) {
-    console.warn("Torbert Text AI: primary manifest failed, trying next-manifest fallback", primaryError);
-    const primaryManifest = await fetchRemoteManifest(REMOTE_MANIFEST_URL).catch(() => null);
+diagnostics.failure("ai.caught_extra_3", primaryError);
+    diagnostics?.legacy?.("warn", "ai.torbert_text_ai_primary_manifest_failed_trying_next_manifest_fall");
+    const primaryManifest = await fetchRemoteManifest(REMOTE_MANIFEST_URL).catch((rejectedError1) => { diagnostics.failure("ai.rejected_2", rejectedError1); return (null); });
     const nextUrl = primaryManifest?.n;
     if (nextUrl && nextUrl !== REMOTE_MANIFEST_URL) {
       const nextManifest = await fetchRemoteManifest(nextUrl);
       const key = await tryDecryptManifestKey(nextManifest, nextUrl);
       remoteApiKeyCache = key;
-      return key;
+      return await (key);
     }
     throw primaryError;
   }
+
+} catch (diagnosticError4) { diagnostics?.failure?.("ai.fetchRemoteApiKey", diagnosticError4); throw diagnosticError4; } finally { diagnosticEnd4(); }
 }
 
 /**
@@ -169,12 +193,17 @@ async function fetchRemoteApiKey(): Promise<string> {
  * when set, otherwise falls back to this app's own remote key manifest.
  */
 async function resolveApiKey(settings: PluginSettings): Promise<string> {
+const diagnosticEnd5 = diagnostics?.start?.("ai.resolveApiKey") ?? (() => {});
+try {
+
   const manualKey = parseOpenAiApiKey(settings.openAiApiKey);
   if (manualKey) {
-    return manualKey;
+    return await (manualKey);
   }
 
-  return fetchRemoteApiKey();
+  return await (fetchRemoteApiKey());
+
+} catch (diagnosticError5) { diagnostics?.failure?.("ai.resolveApiKey", diagnosticError5); throw diagnosticError5; } finally { diagnosticEnd5(); }
 }
 
 interface OpenAiTextContent {
@@ -235,6 +264,9 @@ export interface AiUsageSummary {
 let activeUsageCollector: AiRequestUsage[] | null = null;
 
 export async function collectAiUsageDuring<T>(work: () => Promise<T>): Promise<{ result: T; usage: AiUsageSummary }> {
+const diagnosticEnd6 = diagnostics?.start?.("ai.collectAiUsageDuring") ?? (() => {});
+try {
+
   const previousCollector = activeUsageCollector;
   const requests: AiRequestUsage[] = [];
   activeUsageCollector = requests;
@@ -244,6 +276,8 @@ export async function collectAiUsageDuring<T>(work: () => Promise<T>): Promise<{
   } finally {
     activeUsageCollector = previousCollector;
   }
+
+} catch (diagnosticError6) { diagnostics?.failure?.("ai.collectAiUsageDuring", diagnosticError6); throw diagnosticError6; } finally { diagnosticEnd6(); }
 }
 
 export function summarizeAiUsage(requests: AiRequestUsage[]): AiUsageSummary {
@@ -265,18 +299,26 @@ export function summarizeAiUsage(requests: AiRequestUsage[]): AiUsageSummary {
 }
 
 export async function rewriteWithOpenAi(settings: PluginSettings, instruction: string, text: string, abortSignal?: AbortSignal): Promise<string> {
+const diagnosticEnd7 = diagnostics?.start?.("ai.rewriteWithOpenAi") ?? (() => {});
+try {
+
   validateAiInput(text);
-  return requestFullTextEdit(settings, [
+  return await (requestFullTextEdit(settings, [
     "You edit Markdown text.",
     "Return only the revised Markdown text.",
     "Do not wrap the result in code fences.",
     "Preserve links, headings, lists, frontmatter, code blocks, and existing Markdown syntax unless the user instruction explicitly asks you to change them.",
-  ].join(" "), instruction, text, abortSignal, getLargeContentModelOverride(settings));
+  ].join(" "), instruction, text, abortSignal, getLargeContentModelOverride(settings)));
+
+} catch (diagnosticError7) { diagnostics?.failure?.("ai.rewriteWithOpenAi", diagnosticError7); throw diagnosticError7; } finally { diagnosticEnd7(); }
 }
 
 export async function highlightReadingKeywordsWithOpenAi(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
+const diagnosticEnd8 = diagnostics?.start?.("ai.highlightReadingKeywordsWithOpenAi") ?? (() => {});
+try {
+
   validateAiInput(text);
-  return requestFullTextEdit(settings, [
+  return await (requestFullTextEdit(settings, [
     "You add Obsidian highlights to make Markdown easier to skim.",
     "Return the full Markdown text with only ==highlight== markup added.",
     "Do not rewrite, remove, reorder, summarize, translate, or add words.",
@@ -285,12 +327,17 @@ export async function highlightReadingKeywordsWithOpenAi(settings: PluginSetting
     "If a line has fewer than 20 words, highlight at most 3 keywords or short phrases.",
     "Do not touch headings, tables, code fences, blank lines, link-reference lines, lines that are only a few words, or lines that already contain highlights.",
     "Do not highlight entire lines.",
-  ].join(" "), "Add only ==highlight== markup to the text.", text, abortSignal, getLargeContentModelOverride(settings), "TEXT TO HIGHLIGHT");
+  ].join(" "), "Add only ==highlight== markup to the text.", text, abortSignal, getLargeContentModelOverride(settings), "TEXT TO HIGHLIGHT"));
+
+} catch (diagnosticError8) { diagnostics?.failure?.("ai.highlightReadingKeywordsWithOpenAi", diagnosticError8); throw diagnosticError8; } finally { diagnosticEnd8(); }
 }
 
 export async function generateSummaryFromContent(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
+const diagnosticEnd9 = diagnostics?.start?.("ai.generateSummaryFromContent") ?? (() => {});
+try {
+
   validateAiInput(text);
-  return requestOpenAiText(settings, [
+  return await (requestOpenAiText(settings, [
     "You summarize Markdown notes for Obsidian.",
     "Return only a concise plain-text summary.",
     "Use one to three sentences.",
@@ -300,12 +347,17 @@ export async function generateSummaryFromContent(settings: PluginSettings, text:
     "Create a short summary from this sampled note content.",
     "",
     buildThreePartSample(text),
-  ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " "));
+  ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " ")));
+
+} catch (diagnosticError9) { diagnostics?.failure?.("ai.generateSummaryFromContent", diagnosticError9); throw diagnosticError9; } finally { diagnosticEnd9(); }
 }
 
 export async function generateDelimitedSummaryPrefix(settings: PluginSettings, text: string, abortSignal?: AbortSignal): Promise<string> {
+const diagnosticEnd10 = diagnostics?.start?.("ai.generateDelimitedSummaryPrefix") ?? (() => {});
+try {
+
   validateAiInput(text);
-  return requestOpenAiText(settings, [
+  return await (requestOpenAiText(settings, [
     "You create searchable one-line summary prefixes for Markdown notes.",
     "Return only the summary prefix text.",
     "Use 4 to 14 words.",
@@ -317,10 +369,15 @@ export async function generateDelimitedSummaryPrefix(settings: PluginSettings, t
     "Create a short prefix from this sampled note content.",
     "",
     buildThreePartSample(text),
-  ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " ").replace(/:-:/g, "").trim());
+  ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " ").replace(/:-:/g, "").trim()));
+
+} catch (diagnosticError10) { diagnostics?.failure?.("ai.generateDelimitedSummaryPrefix", diagnosticError10); throw diagnosticError10; } finally { diagnosticEnd10(); }
 }
 
 export async function classifyFolderFromContent(settings: PluginSettings, folders: string[], text: string, abortSignal?: AbortSignal): Promise<string> {
+const diagnosticEnd11 = diagnostics?.start?.("ai.classifyFolderFromContent") ?? (() => {});
+try {
+
   validateAiInput(text);
   const folderList = folders.length > 0 ? folders : ["Jobs", "Clients", "DevOps", "Finance"];
   const rawFolder = await requestOpenAiText(settings, [
@@ -337,7 +394,9 @@ export async function classifyFolderFromContent(settings: PluginSettings, folder
   const normalized = sanitizeFolderName(rawFolder);
   const exactMatch = folderList.find((folder) => folder.toLowerCase() === normalized.toLowerCase());
 
-  return exactMatch || folderList[0];
+  return await (exactMatch || folderList[0]);
+
+} catch (diagnosticError11) { diagnostics?.failure?.("ai.classifyFolderFromContent", diagnosticError11); throw diagnosticError11; } finally { diagnosticEnd11(); }
 }
 
 export function buildThreePartSample(text: string, maxCharacters = 5000): string {
@@ -393,13 +452,16 @@ export function sanitizeFolderName(value: string): string {
 }
 
 async function requestOpenAiText(settings: PluginSettings, instructions: string, input: string, modelOverride?: string, abortSignal?: AbortSignal): Promise<string> {
+const diagnosticEnd12 = diagnostics?.start?.("ai.requestOpenAiText") ?? (() => {});
+try {
+
   const controller = new AbortController();
-  const abortFromCaller = () => controller.abort();
-  const timeout = window.setTimeout(() => controller.abort(), OPENAI_REQUEST_TIMEOUT_MS);
+  const abortFromCaller = () => { const diagnosticAction13 = () => (controller.abort()); return diagnostics?.run ? diagnostics.run("ai.abortFromCaller", diagnosticAction13) : diagnosticAction13(); };
+  const timeout = window.setTimeout(() => diagnostics.guard("ai.timer_1", () => (controller.abort())), OPENAI_REQUEST_TIMEOUT_MS);
   if (abortSignal?.aborted) {
     controller.abort();
   } else {
-    abortSignal?.addEventListener("abort", abortFromCaller, { once: true });
+    abortSignal?.addEventListener("abort", diagnostics.wrap("ai.event_2", abortFromCaller), { once: true });
   }
 
   try {
@@ -408,6 +470,7 @@ async function requestOpenAiText(settings: PluginSettings, instructions: string,
     }
     return await requestOpenAiResponsesText(settings, instructions, input, modelOverride, controller.signal);
   } catch (error) {
+diagnostics.failure("ai.caught_3", error);
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("OpenRouter request timed out.");
     }
@@ -417,6 +480,8 @@ async function requestOpenAiText(settings: PluginSettings, instructions: string,
     window.clearTimeout(timeout);
     abortSignal?.removeEventListener("abort", abortFromCaller);
   }
+
+} catch (diagnosticError12) { diagnostics?.failure?.("ai.requestOpenAiText", diagnosticError12); throw diagnosticError12; } finally { diagnosticEnd12(); }
 }
 
 async function requestFullTextEdit(
@@ -428,16 +493,19 @@ async function requestFullTextEdit(
   modelOverride?: string,
   label = "TEXT TO EDIT",
 ): Promise<string> {
+const diagnosticEnd14 = diagnostics?.start?.("ai.requestFullTextEdit") ?? (() => {});
+try {
+
   const chunks = splitTextForAi(text, FULL_TEXT_CHUNK_CHAR_LIMIT);
 
   if (chunks.length === 1) {
-    return requestOpenAiText(
+    return await (requestOpenAiText(
       settings,
       `${baseInstructions} Return only the complete revised text for the provided input. Do not add any prefix, suffix, commentary, chunk marker, or explanation.`,
       `${userInstruction}\n\n${label}:\n${text}`,
       modelOverride,
       abortSignal,
-    );
+    ));
   }
 
   const outputs: string[] = [];
@@ -463,7 +531,9 @@ async function requestFullTextEdit(
     ));
   }
 
-  return outputs.join("");
+  return await (outputs.join(""));
+
+} catch (diagnosticError14) { diagnostics?.failure?.("ai.requestFullTextEdit", diagnosticError14); throw diagnosticError14; } finally { diagnosticEnd14(); }
 }
 
 function buildChunkPrompt(userInstruction: string, label: string, chunk: string, index: number, total: number, previousContext: string, nextContext: string): string {
@@ -525,20 +595,24 @@ function findLastSoftBreakInsideLongLine(text: string, start: number, end: numbe
 }
 
 async function requestOpenAiResponsesText(settings: PluginSettings, instructions: string, input: string, modelOverride: string | undefined, signal: AbortSignal): Promise<string> {
+const diagnosticEnd15 = diagnostics?.start?.("ai.requestOpenAiResponsesText") ?? (() => {});
+try {
+
   let apiKey: string;
   try {
     apiKey = await resolveApiKey(settings);
   } catch (error) {
-    console.error("Torbert Text AI: failed to resolve an OpenRouter API key", error);
+diagnostics.failure("ai.caught_extra_4", error);
+    diagnostics?.legacy?.("error", "ai.torbert_text_ai_failed_to_resolve_an_openrouter_api_key");
     throw new Error("Torbert AI is temporarily unavailable. Check your connection and try again.");
   }
 
   if (!apiKey) {
-    throw new Error("OpenAI API key is not configured.");
+    throw new Error("The AI connection is unavailable. Enter an OpenRouter API key in Settings or try again later.");
   }
 
   const model = "~openai/gpt-luna-latest";
-  const response = await fetch(`${normalizeBaseUrl(settings.openAiApiBase || "https://openrouter.ai/api/v1")}/chat/completions`, {
+  const response = await (diagnostics?.request?.("network.ai.requestOpenAiResponsesText", fetch, `${normalizeBaseUrl(settings.openAiApiBase || "https://openrouter.ai/api/v1")}/chat/completions`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
@@ -554,12 +628,28 @@ async function requestOpenAiResponsesText(settings: PluginSettings, instructions
       max_tokens: estimateMaxCompletionTokens(input),
       temperature: 0,
     }),
-  });
+  }) ?? fetch(`${normalizeBaseUrl(settings.openAiApiBase || "https://openrouter.ai/api/v1")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    signal,
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: instructions },
+        { role: "user", content: input },
+      ],
+      max_tokens: estimateMaxCompletionTokens(input),
+      temperature: 0,
+    }),
+  }));
 
   const data = await readOpenAiResponse(response);
 
   if (!response.ok) {
-    throw new Error(data.error?.message || `OpenAI request failed with ${response.status}.`);
+    throw new Error(data.error?.message || `The AI request failed. Check your connection and try again.`);
   }
 
   const outputText = data.choices?.[0]?.message?.content
@@ -571,11 +661,13 @@ async function requestOpenAiResponsesText(settings: PluginSettings, instructions
       .join("");
 
   if (!outputText) {
-    throw new Error("OpenRouter response did not include text output.");
+    throw new Error("No AI result was returned. Try again.");
   }
 
   recordAiUsage("openrouter", model, input, instructions, outputText, data.usage);
-  return outputText;
+  return await (outputText);
+
+} catch (diagnosticError15) { diagnostics?.failure?.("ai.requestOpenAiResponsesText", diagnosticError15); throw diagnosticError15; } finally { diagnosticEnd15(); }
 }
 
 function recordAiUsage(provider: "openrouter", model: string, input: string, instructions: string, output: string, usage?: TokenUsage): void {
@@ -585,13 +677,7 @@ function recordAiUsage(provider: "openrouter", model: string, input: string, ins
   const outputRatio = input.length > 0 ? output.length / input.length : 1;
 
   if (input.length > 1000 && (outputRatio < SUSPICIOUS_OUTPUT_RATIO_LOW || outputRatio > SUSPICIOUS_OUTPUT_RATIO_HIGH)) {
-    console.warn("[Torbert Text AI] Suspicious AI character delta", {
-      provider,
-      model,
-      inputChars: input.length,
-      outputChars: output.length,
-      outputRatio: Number(outputRatio.toFixed(3)),
-    });
+    diagnostics?.legacy?.("warn", "ai._torbert_text_ai_suspicious_ai_character_delta");
   }
 
   activeUsageCollector?.push({
@@ -611,15 +697,21 @@ function estimateMaxCompletionTokens(input: string): number {
 }
 
 async function readOpenAiResponse(response: Response): Promise<OpenAiResponse> {
+const diagnosticEnd16 = diagnostics?.start?.("ai.readOpenAiResponse") ?? (() => {});
+try {
+
   try {
-    return await response.json() as OpenAiResponse;
-  } catch {
+    return await (await response.json() as OpenAiResponse);
+  } catch (caughtError4) {
+diagnostics.failure("ai.caught_5", caughtError4);
     return {
       error: {
-        message: `OpenAI returned a non-JSON response with status ${response.status}.`,
+        message: `The AI response could not be read. Try again.`,
       },
     };
   }
+
+} catch (diagnosticError16) { diagnostics?.failure?.("ai.readOpenAiResponse", diagnosticError16); throw diagnosticError16; } finally { diagnosticEnd16(); }
 }
 
 export function parseOpenAiApiKey(value: string): string {

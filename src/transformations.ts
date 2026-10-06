@@ -1,3 +1,4 @@
+import { diagnostics } from "./diagnostics";
 import { applySummary, generateDelimitedSummaryPrefix, generateSummaryFromContent, highlightReadingKeywordsWithOpenAi, rewriteWithOpenAi } from "./ai";
 import { applyActionItemsSection, cleanupMarkdownStructure } from "./feature-utils";
 import type { Transformation } from "./types";
@@ -303,6 +304,9 @@ export const transformations: Record<string, Transformation> = {
     requiresAi: true,
     usesFullText: true,
     transform: async (text, context) => {
+const diagnosticEnd1 = diagnostics?.start?.("transformations.background.10038") ?? (() => {});
+try {
+
       const aiText = await highlightReadingKeywordsWithOpenAi(context.settings, text, context.abortSignal);
       const { newText, changedCount } = sanitizeAiReadingHighlights(text, aiText);
 
@@ -310,7 +314,9 @@ export const transformations: Record<string, Transformation> = {
         newText,
         noticeText: changedCount > 0 ? `AI highlighted keywords in ${changedCount} line(s).` : "No safe lines found for AI keyword highlighting.",
       };
-    },
+
+} catch (diagnosticError1) { diagnostics?.failure?.("transformations.background.10038", diagnosticError1); throw diagnosticError1; } finally { diagnosticEnd1(); }
+},
   },
   toTitleCase: {
     name: "Title Case",
@@ -518,6 +524,9 @@ export const transformations: Record<string, Transformation> = {
     category: "AI",
     requiresAi: true,
     transform: async (text, context) => {
+const diagnosticEnd2 = diagnostics?.start?.("transformations.background.16226") ?? (() => {});
+try {
+
       if (hasDelimitedSummaryPrefix(text)) {
         return {
           newText: text,
@@ -531,7 +540,9 @@ export const transformations: Record<string, Transformation> = {
         newText: addDelimitedSummaryPrefix(text, summary),
         noticeText: summary ? "AI added delimited summary prefix." : "AI did not return a summary prefix.",
       };
-    },
+
+} catch (diagnosticError2) { diagnostics?.failure?.("transformations.background.16226", diagnosticError2); throw diagnosticError2; } finally { diagnosticEnd2(); }
+},
   },
   removeDelimitedSummaryPrefix: {
     name: "Remove AI Summary Prefix",
@@ -580,7 +591,8 @@ export const transformations: Record<string, Transformation> = {
           newText: decodeURIComponent(text),
           noticeText: "URL Decoded.",
         };
-      } catch {
+      } catch (caughtError1) {
+diagnostics.failure("transformations.caught_2", caughtError1);
         return {
           newText: text,
           noticeText: "Error: Invalid URI sequence.",
@@ -592,10 +604,10 @@ export const transformations: Record<string, Transformation> = {
     name: "AI Note Summary",
     category: "AI",
     requiresAi: true,
-    transform: async (text, context) => ({
+    transform: async (text, context) => { const diagnosticEnd3 = diagnostics?.start?.("transformations.background.18338") ?? (() => {}); try { return await (({
       newText: applySummary(text, await generateSummaryFromContent(context.settings, text, context.abortSignal)),
       noticeText: "AI created or updated note summary.",
-    }),
+    })); } catch (diagnosticError3) { diagnostics?.failure?.("transformations.background.18338", diagnosticError3); throw diagnosticError3; } finally { diagnosticEnd3(); } },
   },
 
 };

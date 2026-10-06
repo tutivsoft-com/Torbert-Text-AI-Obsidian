@@ -1,3 +1,40 @@
+## 5.8.60 — loyalty offer copy flow (2026-10-07, validated for publication)
+
+A static coupon offer includes a Copy code action. Server catalog prices and checkout remain authoritative.
+
+
+## 5.8.58 — MVP selection corrections (2026-10-06, private/local)
+
+- Reviewed recursive file/folder/mixed-selection handling and overlap deduplication. No functional source change was needed in this app.
+- Increment the patch version and correct living documentation; keep historical receipts version-specific.
+
+## 5.8.54 — settings layout (2026-10-06, private source)
+
+- Settings use grouped cards, aligned descriptions and controls, responsive narrow layouts, violet billing sections, blue feature headings and teal Important badges for roughly the highest-priority 10% of everyday controls (at least one on small panels). Help remains next to its setting or inside expandable guidance. Existing defaults, callbacks and saved preferences are retained.
+- Synchronize active product versions; preserve separately versioned components.
+- Local layout/build checks passed before the metadata bump; existing regression failures are recorded in the current state. Installation and publication remain separate.
+
+## 5.8.53 — documentation and version synchronization (2026-10-06)
+
+- Replace contradictory current-state documentation with references derived from the current code, commands, settings and dependency closure.
+- Remove superseded guidance and unsupported model/source inferences; retain dated validation evidence with its original version.
+- Synchronize product version declarations. No build, test, runtime installation or public release was performed.
+
+## 5.8.52 — error recovery (2026-10-06, private/local)
+
+- Guard host callbacks and detached background work against synchronous errors and Promise rejections; preserve internal transaction failure propagation.
+- Print full error objects/stacks in the local console, retain bounded summary-only copied logs, and avoid assimilating fluent Setting values as Promises.
+- Add fault-injection tests and scope global runtime reports to their originating plugin.
+
+## 5.8.51 — 2026-10-06 (private/local)
+
+- Add optional privacy-safe timed core/settings console diagnostics using the existing bounded logger; preserve saved preferences.
+- Replace raw legacy console/disk payloads with static diagnostic events. Community publication is separate.
+
+## 5.8.50 — 2026-10-05
+
+- Standardize the compact first-use flow, direct Help/account links, optional Advanced settings, recovery and removal guidance. Preserve existing processing and billing rules.
+
 # Changelog
 
 ## 5.8.49 — Source preparation (2026-10-05)

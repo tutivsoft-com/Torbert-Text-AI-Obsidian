@@ -1,3 +1,31 @@
+## 5.8.60 — loyalty offer copy flow (2026-10-07, validated for publication)
+
+A static coupon offer includes a Copy code action. Server catalog prices and checkout remain authoritative.
+
+## 5.8.54 — settings layout, 2026-10-06 (private source)
+
+Grouped settings cards, aligned help and controls, responsive panels and color hierarchy with teal Important badges. Active source versions are synchronized. Local layout/build verification preceded this metadata increment; this follow-up did not run additional checks or publish/install a release.
+
+## 5.8.53 — documentation and version synchronization (2026-10-06)
+
+- Replace contradictory current-state documentation with references derived from the current code, commands, settings and dependency closure.
+- Remove superseded guidance and unsupported model/source inferences; retain dated validation evidence with its original version.
+- Synchronize product version declarations. No build, test, runtime installation or public release was performed.
+
+## 5.8.52 — error recovery (2026-10-06, private/local)
+
+- Guard host callbacks and detached background work against synchronous errors and Promise rejections; preserve internal transaction failure propagation.
+- Print full error objects/stacks in the local console, retain bounded summary-only copied logs, and avoid assimilating fluent Setting values as Promises.
+- Add fault-injection tests and scope global runtime reports to their originating plugin.
+
+## 5.8.51 — diagnostic logging (2026-10-06)
+
+Private/local update. Optional Debug logging adds safe timed settings/core stages to the existing bounded console logger. Errors remain visible while debug is off. Community publication is separate.
+
+## 5.8.50 — local source update, 2026-10-05
+
+Short first-use guidance, direct Help/account navigation, optional Advanced settings, and clearer recovery/removal instructions.
+
 # Release notes
 
 ## 5.8.49 — Source preparation (2026-10-05)
@@ -188,3 +216,7 @@ This release keeps the plugin behavior unchanged while making the codebase much 
 ## Workflow defaults
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
+
+## MVP selection update — 6 October 2026
+
+5.8.58: Reviewed recursive file/folder/mixed-selection handling and overlap deduplication. No functional source change was needed in this app.

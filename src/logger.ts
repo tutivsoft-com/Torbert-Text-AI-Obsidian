@@ -1,71 +1,12 @@
 import type { DataAdapter } from "obsidian";
-
-type LogLevel = "INFO" | "WARN" | "ERROR";
-
+import { diagnostics } from "./diagnostics";
+/** Compatibility API backed by PluginSupport's bounded privacy-safe memory buffer. */
+const knownSources = new Set(["Plugin.onload","Plugin.onunload","chargeCharacters","applyTransformationToEditor","applyTransformationToFile","applyTransformationToFolder","applyPendingFolderWrites","classifyFiles","applyMovePlan","createWeakTitlesReport","createDuplicateNotesReport","applyCustomPromptToFile","applyCustomPromptToFolder","applyCustomPromptFolderWrites","restoreLastOperation"]);
+const safeSource = (source: string): string => knownSources.has(source) ? source : "operation";
 export class FileLogger {
-  private isEnabled = true;
-
-  constructor(
-    private readonly adapter: DataAdapter,
-    private readonly logFilePath: string,
-  ) {}
-
-  setEnabled(isEnabled: boolean): void {
-    this.isEnabled = isEnabled;
-  }
-
-  info(source: string, message: string, ...details: unknown[]): void {
-    void this.writeLog("INFO", source, message, ...details);
-  }
-
-  warn(source: string, message: string, ...details: unknown[]): void {
-    void this.writeLog("WARN", source, message, ...details);
-  }
-
-  error(source: string, message: string, ...details: unknown[]): void {
-    void this.writeLog("ERROR", source, message, ...details);
-  }
-
-  private formatMessage(level: LogLevel, source: string, message: string, ...details: unknown[]): string {
-    const timestamp = new Date().toISOString();
-    const formattedDetails = details.map((detail) => {
-      if (typeof detail === "object") {
-        try {
-          return JSON.stringify(detail);
-        } catch {
-          return "Unserializable Object";
-        }
-      }
-
-      return String(detail);
-    }).join(" ");
-
-    return `[${timestamp}] [${level}] [${source}] - ${message} ${formattedDetails}\n`;
-  }
-
-  private async writeLog(level: LogLevel, source: string, message: string, ...details: unknown[]): Promise<void> {
-    if (!this.isEnabled) {
-      return;
-    }
-
-    try {
-      const logMessage = this.formatMessage(level, source, message, ...details);
-
-      switch (level) {
-        case "INFO":
-          console.log(`[${source}] - ${message}`, ...details);
-          break;
-        case "WARN":
-          console.warn(`[${source}] - ${message}`, ...details);
-          break;
-        case "ERROR":
-          console.error(`[${source}] - ${message}`, ...details);
-          break;
-      }
-
-      await this.adapter.append(this.logFilePath, logMessage);
-    } catch (error) {
-      console.error("Failed to write to log file:", error);
-    }
-  }
+  constructor(_adapter: DataAdapter, _logFilePath: string) {}
+  setEnabled(_enabled: boolean): void {}
+  info(_source: string, _message: string, ..._details: unknown[]): void { diagnostics.legacy("info", safeSource(_source) + ".progress"); }
+  warn(_source: string, _message: string, ..._details: unknown[]): void { diagnostics.legacy("warn", safeSource(_source) + ".warning"); }
+  error(_source: string, _message: string, ..._details: unknown[]): void { diagnostics.legacy("error", safeSource(_source) + ".failed"); }
 }

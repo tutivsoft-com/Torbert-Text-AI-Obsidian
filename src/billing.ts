@@ -1,3 +1,5 @@
+import { renderLoyaltyDiscount } from "./loyalty-discount";
+import { diagnostics } from "./diagnostics";
 import { consumeAccountUnits } from "./account-credit-client";
 import { Notice, requestUrl, Setting } from "obsidian";
 import type TorbertTextAiPlugin from "./main";
@@ -12,7 +14,7 @@ const APP_ID = "torbert-text-ai-obsidian";
 const adapterFor = (plugin: TorbertTextAiPlugin) => ({ state: plugin.settings, appId: APP_ID, installationId: plugin.settings.constanceDeviceId, persist: () => plugin.saveSettings(), syncBalance: async () => {} });
 
 // One-time credit packs only (no subscriptions, no license keys). Balance
-// reads and spends require the authenticated Constance account session.
+// reads and spends require the authenticated Account session.
 export type TorbertPackKey = "usd_001" | "usd_005" | "usd_015";
 
 interface LivePricePendingCheckout {
@@ -37,25 +39,33 @@ export function joinPublicPacks(products: any, appId = APP_ID): any[] {
 }
 
 export function addLivePacks(root: HTMLElement, plugin: TorbertTextAiPlugin): void {
-  const section = root.createDiv();
-  const status = section.createEl("p", { text: "Loading current Paddle prices…" });
+  const section = root.createDiv({ cls: "ui-billing-packs" });
+  renderLoyaltyDiscount(section);
+  const status = section.createEl("p", { text: "Loading prices…" });
   const appId = APP_ID;
-  void requestUrl({ url: `${BASE_URL}/api/v1/billing/public-products?app_id=${encodeURIComponent(appId)}`, method: "GET", throw: false }).then(async productsResponse => {
-    if (productsResponse.status < 200 || productsResponse.status >= 300) throw new Error(`Pricing unavailable (HTTP ${productsResponse.status}).`);
+  void diagnostics.guard("billing.background_1", () => ((diagnostics?.request?.("network.billing.addLivePacks", requestUrl, { url: `${BASE_URL}/api/v1/billing/public-products?app_id=${encodeURIComponent(appId)}`, method: "GET", throw: false }) ?? requestUrl({ url: `${BASE_URL}/api/v1/billing/public-products?app_id=${encodeURIComponent(appId)}`, method: "GET", throw: false })).then(async productsResponse => {
+const diagnosticEnd1 = diagnostics?.start?.("billing.background.2425") ?? (() => {});
+try {
+
+    if (productsResponse.status < 200 || productsResponse.status >= 300) throw new Error(`Prices are temporarily unavailable. Try again shortly.`);
     const offers = joinPublicPacks(productsResponse.json?.data, appId);
-    if (!offers.length) throw new Error("No current one-time offers are available.");
-    status.setText("Current Paddle pricing. Final checkout calculates applicable tax.");
+    if (!offers.length) throw new Error("No credit packs are currently available.");
+    status.setText("Applicable taxes are calculated at checkout.");
     for (const { pack, priceId, units, unit, amount, available } of offers) {
       const description = [
         pack?.description,
         Number.isSafeInteger(units) && units > 0 ? `${units.toLocaleString()} ${unit}` : "",
         available ? "" : pack?.availability_reason || "Current price unavailable",
       ].filter(Boolean).join(" · ");
-      const row = new Setting(section).setName(pack.price_name || pack.name || pack.code || "One-time offer").setDesc(description);
+      const row = new Setting(section).setName(pack.price_name || pack.name || pack.code || "Credit pack").setDesc(description);
       row.addButton((button) => button
         .setButtonText(available ? `Buy ${amount}` : "Pricing unavailable")
         .setDisabled(!available)
         .onClick(async () => {
+return diagnostics.guard("billing.control_2", async () => {
+const diagnosticEnd2 = diagnostics?.start?.("control.3491.onClick") ?? (() => {});
+try {
+
           button.setDisabled(true);
           try {
             const state = plugin.settings as typeof plugin.settings & {
@@ -74,12 +84,17 @@ export function addLivePacks(root: HTMLElement, plugin: TorbertTextAiPlugin): vo
             if (pending?.checkout_id) {
               const token = await ensureBillingAccessToken(adapterFor(plugin));
               if (!token) throw new Error("Sign in again to check the pending purchase.");
-              const response = await requestUrl({
+              const response = await (diagnostics?.request?.("network.billing.addLivePacks", requestUrl, {
                 url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(pending.checkout_id)}`,
                 method: "GET",
                 headers: { Authorization: `Bearer ${token}` },
                 throw: false,
-              });
+              }) ?? requestUrl({
+                url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(pending.checkout_id)}`,
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+                throw: false,
+              }));
               if (response.status >= 200 && response.status < 300) {
                 const data = response.json?.data;
                 if (data?.settled === true || ["completed", "canceled", "cancelled", "failed", "expired"].includes(data?.status)) {
@@ -108,7 +123,7 @@ export function addLivePacks(root: HTMLElement, plugin: TorbertTextAiPlugin): vo
             await plugin.saveSettings();
             const token = await ensureBillingAccessToken(adapterFor(plugin));
             if (!token) throw new Error("Sign in again before buying characters.");
-            const response = await requestUrl({
+            const response = await (diagnostics?.request?.("network.billing.addLivePacks", requestUrl, {
               url: `${BASE_URL}/api/v1/billing/${legacyPlan ? "checkout" : "checkout-price"}`,
               method: "POST",
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "Idempotency-Key": request.idempotency_key },
@@ -116,8 +131,16 @@ export function addLivePacks(root: HTMLElement, plugin: TorbertTextAiPlugin): vo
                 ? { app_id: appId, installation_id: plugin.settings.constanceDeviceId, plan_code: legacyPlan, quantity: 1 }
                 : { app_id: appId, installation_id: plugin.settings.constanceDeviceId, price_id: request.price_id, quantity: 1 }),
               throw: false,
-            });
-            if (response.status === 401 || response.status === 403) throw new Error("Your billing session expired. Sign in again.");
+            }) ?? requestUrl({
+              url: `${BASE_URL}/api/v1/billing/${legacyPlan ? "checkout" : "checkout-price"}`,
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "Idempotency-Key": request.idempotency_key },
+              body: JSON.stringify(legacyPlan
+                ? { app_id: appId, installation_id: plugin.settings.constanceDeviceId, plan_code: legacyPlan, quantity: 1 }
+                : { app_id: appId, installation_id: plugin.settings.constanceDeviceId, price_id: request.price_id, quantity: 1 }),
+              throw: false,
+            }));
+            if (response.status === 401 || response.status === 403) throw new Error("Your session expired. Sign in again.");
             if (response.status < 200 || response.status >= 300) {
               throw new Error(response.json?.detail?.message || "Checkout unavailable. Refresh current prices and retry.");
             }
@@ -127,15 +150,22 @@ export function addLivePacks(root: HTMLElement, plugin: TorbertTextAiPlugin): vo
             await plugin.saveSettings();
             if (typeof checkout.checkout_url === "string" && checkout.checkout_url) window.open(checkout.checkout_url, "_blank", "noopener");
             else new Notice("Checkout is being confirmed. Its status will refresh when you return.");
-            void pollPaddleCheckoutSettlement(plugin, request.checkout_id!);
+            void diagnostics.guard("billing.background_3", () => (pollPaddleCheckoutSettlement(plugin, request.checkout_id!)));
           } catch (error) {
+diagnostics.failure("billing.caught_4", error);
             new Notice(error instanceof Error ? error.message : "Checkout unavailable.");
           } finally {
             button.setDisabled(!available);
           }
-        }));
+
+} catch (diagnosticError2) { diagnostics?.failure?.("control.3491.onClick", diagnosticError2); throw diagnosticError2; } finally { diagnosticEnd2(); }
+
+});
+}));
     }
-  }).catch(() => status.setText("Pricing temporarily unavailable. Refresh the current prices before buying."));
+
+} catch (diagnosticError1) { diagnostics?.failure?.("billing.background.2425", diagnosticError1); throw diagnosticError1; } finally { diagnosticEnd1(); }
+}).catch((rejectedError1) => { diagnostics.failure("billing.rejected_2", rejectedError1); return (status.setText("Pricing temporarily unavailable. Refresh the current prices before buying.")); })));
 }
 
 const TORBERT_PLAN_CODES: Record<TorbertPackKey, "standard" | "pro" | "ultimate"> = {
@@ -145,10 +175,13 @@ const TORBERT_PLAN_CODES: Record<TorbertPackKey, "standard" | "pro" | "ultimate"
 };
 
 function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  return new Promise((resolve) => window.setTimeout(diagnostics.wrap("billing.timer_5", resolve), milliseconds));
 }
 
 async function pollPaddleCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: string): Promise<void> {
+const diagnosticEnd3 = diagnostics?.start?.("billing.pollPaddleCheckoutSettlement") ?? (() => {});
+try {
+
   for (let attempt = 0; attempt < 12; attempt++) {
     await wait(5000);
     const state = plugin.settings as typeof plugin.settings & { pendingPaddleCheckout?: LivePricePendingCheckout };
@@ -157,12 +190,17 @@ async function pollPaddleCheckoutSettlement(plugin: TorbertTextAiPlugin, checkou
     try {
       const token = await ensureBillingAccessToken(adapterFor(plugin));
       if (!token) return;
-      const response = await requestUrl({
+      const response = await (diagnostics?.request?.("network.billing.pollPaddleCheckoutSettlement", requestUrl, {
         url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(checkoutId)}`,
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
         throw: false,
-      });
+      }) ?? requestUrl({
+        url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(checkoutId)}`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        throw: false,
+      }));
       if (response.status === 401 || response.status === 403) {
         await clearBillingSession(adapterFor(plugin));
         await plugin.saveSettings();
@@ -181,17 +219,23 @@ async function pollPaddleCheckoutSettlement(plugin: TorbertTextAiPlugin, checkou
         : "The previous purchase did not complete. Your current balance was refreshed.", 5000);
       return;
     } catch (error) {
-      console.warn("Torbert: Paddle checkout settlement poll failed", error);
+diagnostics.failure("billing.caught_extra_1", error);
+      diagnostics?.legacy?.("warn", "billing.torbert_paddle_checkout_settlement_poll_failed");
     }
   }
+
+} catch (diagnosticError3) { diagnostics?.failure?.("billing.pollPaddleCheckoutSettlement", diagnosticError3); throw diagnosticError3; } finally { diagnosticEnd3(); }
 }
 
 export function resumePendingPaddleCheckout(plugin: TorbertTextAiPlugin): void {
   const pending = (plugin.settings as typeof plugin.settings & { pendingPaddleCheckout?: LivePricePendingCheckout }).pendingPaddleCheckout;
-  if (pending?.checkout_id) void pollPaddleCheckoutSettlement(plugin, pending.checkout_id);
+  if (pending?.checkout_id) void diagnostics.guard("billing.background_6", () => (pollPaddleCheckoutSettlement(plugin, pending.checkout_id!)));
 }
 
 async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: string): Promise<void> {
+const diagnosticEnd4 = diagnostics?.start?.("billing.pollCheckoutSettlement") ?? (() => {});
+try {
+
   for (let attempt = 0; attempt < 12; attempt++) {
     await wait(5000);
     const pending = plugin.settings.pendingCheckout;
@@ -199,12 +243,17 @@ async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: s
     try {
       const token = await ensureBillingAccessToken(adapterFor(plugin));
       if (!token) return;
-      const response = await requestUrl({
+      const response = await (diagnostics?.request?.("network.billing.pollCheckoutSettlement", requestUrl, {
         url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(checkoutId)}`,
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
         throw: false,
-      });
+      }) ?? requestUrl({
+        url: `${BASE_URL}/api/v1/billing/checkouts/${encodeURIComponent(checkoutId)}`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        throw: false,
+      }));
       if (response.status === 401 || response.status === 403) {
         await clearBillingSession(adapterFor(plugin));
         await plugin.saveSettings();
@@ -219,14 +268,20 @@ async function pollCheckoutSettlement(plugin: TorbertTextAiPlugin, checkoutId: s
         return;
       }
     } catch (error) {
-      console.warn("Torbert: checkout settlement poll failed", error);
+diagnostics.failure("billing.caught_extra_2", error);
+      diagnostics?.legacy?.("warn", "billing.torbert_checkout_settlement_poll_failed");
     }
   }
+
+} catch (diagnosticError4) { diagnostics?.failure?.("billing.pollCheckoutSettlement", diagnosticError4); throw diagnosticError4; } finally { diagnosticEnd4(); }
 }
 
 async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" | "pro" | "ultimate", openBrowser = true): Promise<void> {
+const diagnosticEnd5 = diagnostics?.start?.("billing.startCheckout") ?? (() => {});
+try {
+
   if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) {
-    new Notice("Sign in or create a billing account in Torbert settings before buying characters.");
+    new Notice("Sign in or create an account in Torbert settings before buying characters.");
     return;
   }
   if (plugin.settings.pendingCheckout && plugin.settings.pendingCheckout.planCode !== planCode) { new Notice("A purchase is pending. Wait for its status before starting another."); return; }
@@ -237,7 +292,7 @@ async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" |
   await plugin.saveSettings();
   const token = await ensureBillingAccessToken(adapterFor(plugin));
   if (!token) { new Notice("Torbert: sign in again to buy characters."); return; }
-  const response = await requestUrl({
+  const response = await (diagnostics?.request?.("network.billing.startCheckout", requestUrl, {
     url: `${BASE_URL}/api/v1/billing/checkout`,
     method: "POST",
     headers: {
@@ -247,11 +302,21 @@ async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" |
     },
     body: JSON.stringify({ app_id: APP_ID, plan_code: planCode, installation_id: plugin.settings.constanceDeviceId, quantity: 1 }),
     throw: false,
-  });
+  }) ?? requestUrl({
+    url: `${BASE_URL}/api/v1/billing/checkout`,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "Idempotency-Key": pending.idempotencyKey,
+    },
+    body: JSON.stringify({ app_id: APP_ID, plan_code: planCode, installation_id: plugin.settings.constanceDeviceId, quantity: 1 }),
+    throw: false,
+  }));
   if (response.status === 401 || response.status === 403) {
     await clearBillingSession(adapterFor(plugin));
     await plugin.saveSettings();
-    new Notice("Torbert: your billing session expired. Sign in again.");
+    new Notice("Torbert: your session expired. Sign in again.");
     return;
   }
   if (response.status < 200 || response.status >= 300) {
@@ -262,27 +327,30 @@ async function startCheckout(plugin: TorbertTextAiPlugin, planCode: "standard" |
   const checkoutId = String(data?.checkout_id || data?.id || "");
   const checkoutUrl = String(data?.checkout_url || "");
   if (!checkoutId || !checkoutUrl) {
-    new Notice("Torbert: Constance returned an incomplete checkout response.");
+    new Notice("Torbert: checkout could not be started. Try again from Settings.");
     return;
   }
   plugin.settings.pendingCheckout = { ...pending, checkoutId };
   await plugin.saveSettings();
   if (openBrowser) window.open(checkoutUrl, "_blank", "noopener");
-  void pollCheckoutSettlement(plugin, checkoutId);
+  void diagnostics.guard("billing.background_7", () => (pollCheckoutSettlement(plugin, checkoutId)));
+
+} catch (diagnosticError5) { diagnostics?.failure?.("billing.startCheckout", diagnosticError5); throw diagnosticError5; } finally { diagnosticEnd5(); }
 }
 
 export function resumePendingCheckout(plugin: TorbertTextAiPlugin): void {
   const pending = plugin.settings.pendingCheckout;
   if (!pending) return;
-  if (pending.checkoutId) void pollCheckoutSettlement(plugin, pending.checkoutId);
-  else void startCheckout(plugin, pending.planCode as "standard" | "pro" | "ultimate", false);
+  if (pending.checkoutId) void diagnostics.guard("billing.background_8", () => (pollCheckoutSettlement(plugin, pending.checkoutId!)));
+  else void diagnostics.guard("billing.background_9", () => (startCheckout(plugin, pending.planCode as "standard" | "pro" | "ultimate", false)));
 }
 
 export function openCheckout(plugin: TorbertTextAiPlugin, tier: TorbertPackKey): void {
-  void startCheckout(plugin, TORBERT_PLAN_CODES[tier]).catch((error) => {
-    console.error("Torbert: authenticated checkout failed", error);
+  void diagnostics.guard("billing.background_10", () => (startCheckout(plugin, TORBERT_PLAN_CODES[tier]).catch((error) => {
+diagnostics.failure("billing.rejected_3", error);
+    diagnostics?.legacy?.("error", "billing.torbert_authenticated_checkout_failed");
     new Notice("Torbert: checkout could not be started. Retry from settings.");
-  });
+  })));
 }
 
 export function generateEventId(): string {
@@ -292,33 +360,46 @@ export function generateEventId(): string {
 }
 
 async function fetchConstanceEntitlements(plugin: TorbertTextAiPlugin): Promise<any> {
+const diagnosticEnd6 = diagnostics?.start?.("billing.fetchConstanceEntitlements") ?? (() => {});
+try {
+
   const token = await ensureBillingAccessToken(adapterFor(plugin));
   if (!token) throw new Error("Billing session expired");
-  const response = await requestUrl({
+  const response = await (diagnostics?.request?.("network.billing.fetchConstanceEntitlements", requestUrl, {
     url: `${BASE_URL}/api/v1/billing/entitlements/me?${new URLSearchParams({ app_id: APP_ID, installation_id: plugin.settings.constanceDeviceId }).toString()}`,
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     throw: false,
-  });
+  }) ?? requestUrl({
+    url: `${BASE_URL}/api/v1/billing/entitlements/me?${new URLSearchParams({ app_id: APP_ID, installation_id: plugin.settings.constanceDeviceId }).toString()}`,
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+    throw: false,
+  }));
   if (response.status === 401 || response.status === 403 || response.status === 404) {
     await clearBillingSession(adapterFor(plugin));
     await plugin.saveSettings();
   }
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(`Entitlement sync failed: HTTP ${response.status}`);
+    throw new Error(`Your account could not be updated. Check your connection and try again.`);
   }
-  return response.json?.data;
+  return await (response.json?.data);
+
+} catch (diagnosticError6) { diagnostics?.failure?.("billing.fetchConstanceEntitlements", diagnosticError6); throw diagnosticError6; } finally { diagnosticEnd6(); }
 }
 
 /** Verify free or purchased character eligibility before a billable AI call. */
 export async function checkCharactersAvailable(plugin: TorbertTextAiPlugin, amount: number): Promise<boolean> {
+const diagnosticEnd7 = diagnostics?.start?.("billing.checkCharactersAvailable") ?? (() => {});
+try {
+
   if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) {
-    new Notice("Torbert: sign in or create a billing account in plugin settings before running AI.");
+    new Notice("Torbert: sign in or create an account in plugin settings before running AI.");
     return false;
   }
   await retryPendingSpendEvents(plugin);
   if (plugin.settings.pendingSpendEvents.length > 0) {
-    new Notice("Torbert: a previous credit spend is still being reconciled. No AI request was sent.");
+    new Notice("Torbert: a previous charge is still being confirmed. No AI request was sent.");
     return false;
   }
   try {
@@ -331,14 +412,17 @@ export async function checkCharactersAvailable(plugin: TorbertTextAiPlugin, amou
     if (freeRemaining + purchasedBalance >= amount) return true;
     new Notice("Torbert: not enough free or purchased characters. No AI request was sent.");
     return false;
-  } catch {
+  } catch (caughtError11) {
+diagnostics.failure("billing.caught_12", caughtError11);
     if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) {
-      new Notice("Torbert: your billing session expired. Sign in again before running AI.");
+      new Notice("Torbert: your session expired. Sign in again before running AI.");
     } else {
-      new Notice("Torbert: billing could not be verified. No AI request was sent.");
+      new Notice("Torbert: your account could not be verified. No AI request was sent.");
     }
     return false;
   }
+
+} catch (diagnosticError7) { diagnostics?.failure?.("billing.checkCharactersAvailable", diagnosticError7); throw diagnosticError7; } finally { diagnosticEnd7(); }
 }
 
 export type SpendResult =
@@ -347,6 +431,9 @@ export type SpendResult =
   | { kind: "error" };
 
 export async function spendConstanceCredits(plugin: TorbertTextAiPlugin, amount: number, stableEventId = generateEventId()): Promise<SpendResult> {
+const diagnosticEnd8 = diagnostics?.start?.("billing.spendConstanceCredits") ?? (() => {});
+try {
+
   if (stableEventId.startsWith("consume_")) {
     const result = await consumeAccountUnits({ state: plugin.settings, appId: APP_ID, installationId: plugin.settings.constanceDeviceId, refreshSession: () => refreshBillingSession(plugin.settings, () => plugin.saveSettings()) }, stableEventId, amount);
     if (result.kind === "ok") {
@@ -357,10 +444,15 @@ export async function spendConstanceCredits(plugin: TorbertTextAiPlugin, amount:
   }
   const result = await spendAccountCredits(adapterFor(plugin), APP_ID, plugin.settings.constanceDeviceId, stableEventId, amount);
   if (result.kind === "auth-required") { await clearBillingSession(adapterFor(plugin)); return { kind: "error" }; }
-  return result.kind === "ok" || result.kind === "insufficient" || result.kind === "error" ? result : { kind: "error" };
+  return await (result.kind === "ok" || result.kind === "insufficient" || result.kind === "error" ? result : { kind: "error" });
+
+} catch (diagnosticError8) { diagnostics?.failure?.("billing.spendConstanceCredits", diagnosticError8); throw diagnosticError8; } finally { diagnosticEnd8(); }
 }
 
 export async function retryPendingSpendEvents(plugin: TorbertTextAiPlugin): Promise<void> {
+const diagnosticEnd9 = diagnostics?.start?.("billing.retryPendingSpendEvents") ?? (() => {});
+try {
+
   for (const pending of [...(plugin.settings.pendingSpendEvents ?? [])]) {
     const result = await spendConstanceCredits(plugin, pending.amount, pending.eventId);
     if (result.kind === "error") break;
@@ -368,23 +460,32 @@ export async function retryPendingSpendEvents(plugin: TorbertTextAiPlugin): Prom
     plugin.settings.purchasedCharacters = result.kind === "ok" ? result.balance : 0;
     await plugin.saveSettings();
   }
+
+} catch (diagnosticError9) { diagnostics?.failure?.("billing.retryPendingSpendEvents", diagnosticError9); throw diagnosticError9; } finally { diagnosticEnd9(); }
 }
 
 export async function syncPurchasedCharactersFromConstance(plugin: TorbertTextAiPlugin, manual = false): Promise<void> {
+const diagnosticEnd10 = diagnostics?.start?.("billing.syncPurchasedCharactersFromConstance") ?? (() => {});
+try {
+
   if (!plugin.settings.constanceDeviceId) {
     return;
   }
   try {
-    if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) { if (manual) throw new Error("Connect your billing account before refreshing credits."); return; }
+    if (!plugin.settings.billingRefreshToken || !plugin.settings.billingAccountLinked) { if (manual) throw new Error("Connect your account before refreshing credits."); return; }
     const entitlement = await fetchConstanceEntitlements(plugin);
     const serverBalance = (entitlement?.credits?.total_available ?? entitlement?.credits?.balance);
-    if (!Number.isFinite(serverBalance)) throw new Error("Billing returned an invalid balance");
-    plugin.settings.freeCharacters = Math.max(0, Number(entitlement?.free_usage?.remaining) || 0);
+    const freeRemaining = entitlement?.free_usage?.remaining;
+    if (!Number.isFinite(serverBalance) || serverBalance < 0 || !Number.isFinite(freeRemaining) || freeRemaining < 0) throw new Error("Your balance could not be updated. Refresh it and try again.");
+    plugin.settings.freeCharacters = freeRemaining;
     plugin.settings.purchasedCharacters = Math.max(0, Number(serverBalance) || 0);
     await plugin.saveSettings();
     plugin.refreshBillingCredits?.();
   } catch (error) {
+diagnostics.failure("billing.caught_13", error);
     if (manual) throw error;
-    console.error("Torbert: Constance entitlement sync failed", error);
+    diagnostics?.legacy?.("error", "billing.torbert_constance_entitlement_sync_failed");
   }
+
+} catch (diagnosticError10) { diagnostics?.failure?.("billing.syncPurchasedCharactersFromConstance", diagnosticError10); throw diagnosticError10; } finally { diagnosticEnd10(); }
 }

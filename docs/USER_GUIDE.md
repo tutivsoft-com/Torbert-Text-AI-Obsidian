@@ -1,45 +1,33 @@
-# Torbert Text AI — user guide
+# Torbert Text AI user guide
 
-## What Torbert does
+Current version: **5.8.60**.
 
-Torbert provides Markdown cleanup and optional AI transformations for notes and folders. A chosen transformation applies when launched, and the latest applied operation can be restored.
+## Start
 
-## Choose an action
+1. Enable the plugin in Obsidian Community plugins.
+2. Open its settings and configure the destination or operation as appropriate. Simple is the default; Advanced is optional.
+3. Connect the account when the chosen operation needs account authorization.
+4. Select text or open a Markdown note and run Text Cleanup / Bold to Highlight, or choose another transformation.
 
-- In the editor, right-click selected text or the current note.
-- In the file explorer, right-click a Markdown file or folder.
-- In the command palette, search `Torbert Text AI:`.
+Local transformations run on selected or file text. AI transformations send the chosen text to OpenRouter. Review before applying is optional and off by default. Folder classification, weak-title/duplicate-note reports, custom prompts and Restore last change have separate command/menu entry points.
 
-The context menu groups actions under **AI**, **Text Cleanup**, and **Markdown Notes**. Saved prompt presets appear under their own group.
+## Account and usage
 
-## Text cleanup
+Connect the existing Constance account in settings; registration can require email verification before signing in again. Billing account passwords are sent for authentication and are not persisted. Access/refresh session data and a stable installation identity are saved locally. Account free usage and purchased balance are determined by Constance; cached values and checkout return URLs do not create entitlement. Catalog displays current formatted names, prices, availability and exact price IDs. Unknown usage and checkout results retain their original identities for recovery.
 
-Text cleanup includes case conversion, sorting, duplicate and blank-line removal, keyword highlighting, URL encoding and decoding, slug creation, and quote conversion.
+Torbert meters input characters for AI actions using JavaScript string length. Charging order differs across editor, file, folder, classification and report workflows; a later failure can follow usage consumption. Stable event IDs are retained for debit recovery. Local transformations keep their existing local workflow.
 
-## Markdown notes
+## Troubleshooting
 
-Markdown actions include heading and list conversion, numbering repair, structure cleanup, checkboxes, action items, URL extraction, weak-title detection, and likely duplicate-note detection.
+Help is available in settings and through Open documentation. Open plugin settings and Copy full debug log are command-palette fallbacks. Debug logging defaults off for a new installation; failures and full Error objects/stacks still appear in the local developer console. Timed information is enabled by the debug preference. The copyable diagnostic buffer keeps at most 1,000 summarized events and excludes raw error text, stacks, note text, paths and credentials. Full console exceptions can contain whatever the failed operation placed in its error. Logs are not uploaded automatically.
 
-## AI features
+Use the console's plugin-name prefix and version to identify the failing stage. A catchable failure stops its affected action; retry after resolving the underlying problem. Historical build/install results apply to their recorded versions.
 
-AI actions include reading highlights, summaries, summary prefixes, folder classification, and saved prompt presets. For frontmatter and tags use Tundra; for note renaming use Denali; for proofreading use Culebra.
+## Removal
 
-Torbert sends the selected text or note content directly to OpenRouter when an AI action runs. The optional personal API key takes priority. If that setting is blank, Torbert retrieves its managed key from the established encrypted Pattern B manifest. Provider preferences remain in Advanced settings; actual requests use `~openai/gpt-luna-latest` regardless of saved model preferences. Constance does not proxy AI requests or select the model.
+Removing a plugin does not undo earlier file edits or recover an encryption password. Preserve any originals, backups, queues and recovery data you need before removing it. Account purchases remain associated with the account.
 
-The AI request queue shows the submitted text excerpt, elapsed time, batch progress, and completion status. Actions run one at a time; clear waiting actions while the active request finishes.
+See plugin settings for implemented commands, settings defaults and privacy controls.
+## MVP selection update — 6 October 2026
 
-## Account and billing
-
-Connect a billing account in plugin settings. Verify the email link if requested, then connect again. Constance supplies free and purchased character balances and processes usage debits and Paddle checkouts. Torbert offers 20,000, 60,000, 180,000, and 450,000 characters per purchase. Current Paddle amounts, descriptions, and availability load through Constance. An AI result is charged before it is applied; a failed provider request does not submit a usage debit.
-
-## Restore and safe workflow
-
-If a note changes while an action is running, Torbert keeps the newer text. Use **Restore last change** to undo the latest applied operation.
-
-1. Test a transformation on a copied note.
-2. Check dates, names, links, code blocks, and frontmatter.
-3. Restore the latest operation if the result is not wanted.
-
-## Workflow defaults
-
-AI output is applied when the user launches a transformation. Before-and-after previews are optional and off by default.
+5.8.58: Reviewed recursive file/folder/mixed-selection handling and overlap deduplication. No functional source change was needed in this app.

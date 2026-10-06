@@ -16,6 +16,7 @@ export type TransformationId = string;
 
 export interface PluginSettings {
   settingsMode: "simple" | "advanced";
+  debugLogging?: boolean;
   showRibbonIcon: boolean;
   showContextMenuSingle: boolean;
   showContextMenuSubmenu: boolean;
