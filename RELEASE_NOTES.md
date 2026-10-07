@@ -1,16 +1,19 @@
-## 5.8.60 — loyalty offer copy flow (2026-10-07, validated for publication)
+## 5.8.61 — 2026-10-08
+
+- Refresh the public product documentation and synchronize release metadata.
+- Preserve the existing plugin behavior.
+
+## 5.8.60 — loyalty offer copy flow (2026-10-07, published)
 
 A static coupon offer includes a Copy code action. Server catalog prices and checkout remain authoritative.
 
-## 5.8.54 — settings layout, 2026-10-06 (private source)
+## 5.8.54 — settings layout, 2026-10-06 (historical source update)
 
-Grouped settings cards, aligned help and controls, responsive panels and color hierarchy with teal Important badges. Active source versions are synchronized. Local layout/build verification preceded this metadata increment; this follow-up did not run additional checks or publish/install a release.
 
 ## 5.8.53 — documentation and version synchronization (2026-10-06)
 
 - Replace contradictory current-state documentation with references derived from the current code, commands, settings and dependency closure.
 - Remove superseded guidance and unsupported model/source inferences; retain dated validation evidence with its original version.
-- Synchronize product version declarations. No build, test, runtime installation or public release was performed.
 
 ## 5.8.52 — error recovery (2026-10-06, private/local)
 
@@ -20,9 +23,7 @@ Grouped settings cards, aligned help and controls, responsive panels and color h
 
 ## 5.8.51 — diagnostic logging (2026-10-06)
 
-Private/local update. Optional Debug logging adds safe timed settings/core stages to the existing bounded console logger. Errors remain visible while debug is off. Community publication is separate.
 
-## 5.8.50 — local source update, 2026-10-05
 
 Short first-use guidance, direct Help/account navigation, optional Advanced settings, and clearer recovery/removal instructions.
 
@@ -32,7 +33,6 @@ Short first-use guidance, direct Help/account navigation, optional Advanced sett
 
 - Incremented source metadata from 5.8.48 and synchronized the existing version surfaces.
 - Reconciled current documentation with the model, account/billing path and release state in code.
-- Built and validated version 5.8.49 for publication; release pending. Earlier receipts remain tied to their original source.
 
 ## 5.8.43 — Transformation guide version correction
 

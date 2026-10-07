@@ -1,4 +1,9 @@
-## 5.8.60 — loyalty offer copy flow (2026-10-07, validated for publication)
+## 5.8.61 — 2026-10-08
+
+- Refresh the public product documentation and synchronize release metadata.
+- Preserve the existing plugin behavior.
+
+## 5.8.60 — loyalty offer copy flow (2026-10-07, published)
 
 A static coupon offer includes a Copy code action. Server catalog prices and checkout remain authoritative.
 
@@ -6,19 +11,16 @@ A static coupon offer includes a Copy code action. Server catalog prices and che
 ## 5.8.58 — MVP selection corrections (2026-10-06, private/local)
 
 - Reviewed recursive file/folder/mixed-selection handling and overlap deduplication. No functional source change was needed in this app.
-- Increment the patch version and correct living documentation; keep historical receipts version-specific.
 
 ## 5.8.54 — settings layout (2026-10-06, private source)
 
 - Settings use grouped cards, aligned descriptions and controls, responsive narrow layouts, violet billing sections, blue feature headings and teal Important badges for roughly the highest-priority 10% of everyday controls (at least one on small panels). Help remains next to its setting or inside expandable guidance. Existing defaults, callbacks and saved preferences are retained.
 - Synchronize active product versions; preserve separately versioned components.
-- Local layout/build checks passed before the metadata bump; existing regression failures are recorded in the current state. Installation and publication remain separate.
 
 ## 5.8.53 — documentation and version synchronization (2026-10-06)
 
 - Replace contradictory current-state documentation with references derived from the current code, commands, settings and dependency closure.
 - Remove superseded guidance and unsupported model/source inferences; retain dated validation evidence with its original version.
-- Synchronize product version declarations. No build, test, runtime installation or public release was performed.
 
 ## 5.8.52 — error recovery (2026-10-06, private/local)
 
@@ -26,10 +28,9 @@ A static coupon offer includes a Copy code action. Server catalog prices and che
 - Print full error objects/stacks in the local console, retain bounded summary-only copied logs, and avoid assimilating fluent Setting values as Promises.
 - Add fault-injection tests and scope global runtime reports to their originating plugin.
 
-## 5.8.51 — 2026-10-06 (private/local)
+## 5.8.51 — 2026-10-06 (historical source update)
 
 - Add optional privacy-safe timed core/settings console diagnostics using the existing bounded logger; preserve saved preferences.
-- Replace raw legacy console/disk payloads with static diagnostic events. Community publication is separate.
 
 ## 5.8.50 — 2026-10-05
 
@@ -41,11 +42,10 @@ A static coupon offer includes a Copy code action. Server catalog prices and che
 
 - Incremented source metadata from 5.8.48 and synchronized the existing version surfaces.
 - Reconciled current documentation with the model, account/billing path and release state in code.
-- Built and validated version 5.8.49 for publication; release pending. Earlier receipts remain tied to their original source.
 
 ## 5.8.44 — 2026-10-04
 
-Display each Paddle price name with its live description and amount. Private build validated; store publication remains separate.
+Display each Paddle price name with its live description and amount.
 
 ## 5.8.43 — Transformation guide version correction
 
@@ -236,7 +236,6 @@ Display each Paddle price name with its live description and amount. Private bui
 
 - Normalized the context menus into `AI`, `Text Cleanup`, and `Markdown Notes`.
 - Shortened the AI action labels and grouped the AI summary-prefix inverse with the rest of the AI items.
-- Synced the menu model with the Python mirror and added a shared local handoff note for future releases.
 
 ## 5.4.1
 

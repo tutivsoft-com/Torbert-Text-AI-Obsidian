@@ -1,30 +1,65 @@
 # Torbert Text AI
 
-Apply local text and Markdown transformations, with optional AI reading highlights, summaries, classification and custom prompts.
+Clean up Markdown locally and use optional AI to highlight, summarize or classify notes.
 
-Current version: **5.8.60**.
+**Best for:** Obsidian users editing Markdown and reviewing longer notes.
 
-## First use
+## Top 10 features
 
-Enable the plugin and use its settings page. Simple is the default settings mode; Advanced exposes optional configuration. Select text or open a Markdown note and run Text Cleanup / Bold to Highlight, or choose another transformation.
+1. Clean up text locally.
+2. Change text case.
+3. Transform lines and Markdown.
+4. Convert bold text to highlights.
+5. Create AI reading highlights.
+6. Summarize notes with AI.
+7. Classify folder content.
+8. Run custom AI prompts.
+9. Review weak-title and duplicate-note reports.
+10. Restore the last supported change.
 
-Local transformations run on selected or file text. AI transformations send the chosen text to OpenRouter. Review before applying is optional and off by default. Folder classification, weak-title/duplicate-note reports, custom prompts and Restore last change have separate command/menu entry points.
+## Example workflow
 
-## Account and processing
+**Before:** A long note mixes untidy formatting with key points buried in paragraphs.
 
-AI requests go directly to OpenRouter using the fixed request model `~openai/gpt-luna-latest`. Torbert retains an optional personal OpenRouter key with its existing managed-key fallback. Constance handles account and billing operations.
+**After:** Apply local cleanup, then request highlights or a summary to make the note easier to review.
 
-Torbert meters input characters for AI actions using JavaScript string length. Charging order differs across editor, file, folder, classification and report workflows; a later failure can follow usage consumption. Stable event IDs are retained for debit recovery. Local transformations keep their existing local workflow.
+## Pricing
 
-Connect the existing Constance account in settings; registration can require email verification before signing in again. Billing account passwords are sent for authentication and are not persisted. Access/refresh session data and a stable installation identity are saved locally. Account free usage and purchased balance are determined by Constance; cached values and checkout return URLs do not create entitlement. Catalog displays current formatted names, prices, availability and exact price IDs. Unknown usage and checkout results retain their original identities for recovery.
+A connected account includes 10,000 characters as a one-time lifetime allowance. Previous use counts toward that allowance.
 
-## Diagnostics
+| Pack | USD price | Included units |
+|---|---:|---:|
+| Starter | $2.00 | 80,000 characters |
+| Standard | $4.00 | 240,000 characters |
+| Pro | $8.00 | 720,000 characters |
+| Ultimate | $14.00 | 1,800,000 characters |
 
-Help is available in settings and through Open documentation. Open plugin settings and Copy full debug log are command-palette fallbacks. Debug logging defaults off for a new installation; failures and full Error objects/stacks still appear in the local developer console. Timed information is enabled by the debug preference. The copyable diagnostic buffer keeps at most 1,000 summarized events and excludes raw error text, stacks, note text, paths and credentials. Full console exceptions can contain whatever the failed operation placed in its error. Logs are not uploaded automatically.
+Packs are one-time purchases. Purchased units do not expire. Final tax and local currency are shown at checkout.
 
-## Documentation
+## What to know
 
-- [User guide](docs/USER_GUIDE.md)
-- [Implemented transformations](docs/TRANSFORMATIONS.md)
+Local transformations stay on your computer. Requested AI actions send the chosen text to an online service.
 
-License terms are in LICENSE.
+---
+
+## Discover Torbert Text AI
+
+Whether you need to clean up text locally or change text case, Torbert Text AI provides a focused workflow for Obsidian users editing Markdown and reviewing longer notes.
+
+### Common questions
+
+**What can I use it for?**
+
+You can clean up text locally, convert bold text to highlights or create AI reading highlights.
+
+**How do I get started?**
+
+Enable the plugin in Obsidian, open its settings and choose the action that fits your note. Connect your account for metered actions; the settings page shows your remaining allowance and available packs.
+
+### Search description
+
+Clean up Markdown locally and use optional AI to highlight, summarize or classify notes. Designed for Obsidian users editing Markdown and reviewing longer notes.
+
+### Related topics
+
+Obsidian text transformation, Markdown cleanup, AI note summary, reading highlights, custom prompts.
