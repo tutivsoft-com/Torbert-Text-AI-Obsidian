@@ -66,6 +66,6 @@ Obsidian text transformation, Markdown cleanup, AI note summary, reading highlig
 
 ## Release
 
-Version 5.8.67 is prepared for manual validation and publication.
+Version 5.8.67 was published on 17 October 2026. Its final Obsidian Community audit completed successfully. [Release assets](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian/releases/tag/5.8.67).
 
 Basic app usage events are sent to https://atcdn.cyou without note contents. Account and purchase operations use Constance.
