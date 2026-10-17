@@ -1,67 +1,67 @@
-## 5.8.62 — 2026-10-16
+## 5.8.66 - 2026-10-16
 
 Repository maintenance: fill missing standard metadata, align product version carriers, and keep generated outputs/caches out of source control. Preserve existing code, assets, data, credentials and history.
 
-## 5.8.61 — 2026-10-08
+## 5.8.61 - 2026-10-08
 
 - Refresh the public product documentation and synchronize release metadata.
 - Preserve the existing plugin behavior.
 
-## 5.8.60 — loyalty offer copy flow (2026-10-07, published)
+## 5.8.60 - loyalty offer copy flow (2026-10-07, published)
 
 A static coupon offer includes a Copy code action. Server catalog prices and checkout remain authoritative.
 
 
-## 5.8.58 — MVP selection corrections (2026-10-06, private/local)
+## 5.8.58 - MVP selection corrections (2026-10-06, private/local)
 
 - Reviewed recursive file/folder/mixed-selection handling and overlap deduplication. No functional source change was needed in this app.
 
-## 5.8.54 — settings layout (2026-10-06, private source)
+## 5.8.54 - settings layout (2026-10-06, private source)
 
 - Settings use grouped cards, aligned descriptions and controls, responsive narrow layouts, violet billing sections, blue feature headings and teal Important badges for roughly the highest-priority 10% of everyday controls (at least one on small panels). Help remains next to its setting or inside expandable guidance. Existing defaults, callbacks and saved preferences are retained.
 - Synchronize active product versions; preserve separately versioned components.
 
-## 5.8.53 — documentation and version synchronization (2026-10-06)
+## 5.8.53 - documentation and version synchronization (2026-10-06)
 
 - Replace contradictory current-state documentation with references derived from the current code, commands, settings and dependency closure.
 - Remove superseded guidance and unsupported model/source inferences; retain dated validation evidence with its original version.
 
-## 5.8.52 — error recovery (2026-10-06, private/local)
+## 5.8.52 - error recovery (2026-10-06, private/local)
 
 - Guard host callbacks and detached background work against synchronous errors and Promise rejections; preserve internal transaction failure propagation.
 - Print full error objects/stacks in the local console, retain bounded summary-only copied logs, and avoid assimilating fluent Setting values as Promises.
 - Add fault-injection tests and scope global runtime reports to their originating plugin.
 
-## 5.8.51 — 2026-10-06 (historical source update)
+## 5.8.51 - 2026-10-06 (historical source update)
 
 - Add optional privacy-safe timed core/settings console diagnostics using the existing bounded logger; preserve saved preferences.
 
-## 5.8.50 — 2026-10-05
+## 5.8.50 - 2026-10-05
 
 - Standardize the compact first-use flow, direct Help/account links, optional Advanced settings, recovery and removal guidance. Preserve existing processing and billing rules.
 
 # Changelog
 
-## 5.8.49 — Source preparation (2026-10-05)
+## 5.8.49 - Source preparation (2026-10-05)
 
 - Incremented source metadata from 5.8.48 and synchronized the existing version surfaces.
 - Reconciled current documentation with the model, account/billing path and release state in code.
 
-## 5.8.44 — 2026-10-04
+## 5.8.44 - 2026-10-04
 
 Display each Paddle price name with its live description and amount.
 
-## 5.8.43 — Transformation guide version correction
+## 5.8.43 - Transformation guide version correction
 
 - Correct the current transformation reference version; the implementation is unchanged from 5.8.41.
 
 
-## 5.8.42 — Constance account recovery
+## 5.8.42 - Constance account recovery
 
 - Save successful account sessions before installation linking; preserve sessions when billing is temporarily unavailable and clear tokens rejected by the server.
 - Preserve structured account error codes and show accurate sign-in and email-verification guidance.
 
-## 5.8.40 — Release packaging update (2026-10-02)
+## 5.8.40 - Release packaging update (2026-10-02)
 
 - Synchronized source version metadata and current documentation only; no runtime implementation changed.
 - Rebuilt and validated this release package at 5.8.40. No runtime behavior changed.
@@ -86,7 +86,7 @@ Display each Paddle price name with its live description and amount.
 - Registration requiring verification stays pending and cannot link an installation.
 - Lock the signed-in email until sign out and expose central password recovery.
 
-## 5.8.32 — Account and credit clarity
+## 5.8.32 - Account and credit clarity
 
 - Moved account and billing controls to the top of settings.
 - Simplified account controls to email, password, Register, Sign in, Sign out, balance refresh, and purchase buttons.
@@ -199,7 +199,7 @@ Display each Paddle price name with its live description and amount.
   own encrypted key from a GitHub-hosted manifest (AES-256-GCM +
   PBKDF2-HMAC-SHA256, same scheme as the Culebra/Denali Obsidian plugins),
   replacing the previous manual-key-only requirement. The manual setting
-  still takes priority when set. No endpoint change — already targeting
+  still takes priority when set. No endpoint change - already targeting
   OpenRouter's chat-completions API.
 
 ## 5.7.2 - 2026-08-20

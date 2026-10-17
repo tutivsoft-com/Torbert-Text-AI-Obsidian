@@ -1,6 +1,6 @@
 # Torbert Text AI user guide
 
-Current version: **5.8.61**.
+Current version: **5.8.67**.
 
 ## Start
 
@@ -28,6 +28,6 @@ Use the console's plugin-name prefix and version to identify the failing stage. 
 Removing a plugin does not undo earlier file edits or recover an encryption password. Preserve any originals, backups, queues and recovery data you need before removing it. Account purchases remain associated with the account.
 
 See plugin settings for implemented commands, settings defaults and privacy controls.
-## MVP selection update — 6 October 2026
+## MVP selection update - 6 October 2026
 
 5.8.58: Reviewed recursive file/folder/mixed-selection handling and overlap deduplication. No functional source change was needed in this app.

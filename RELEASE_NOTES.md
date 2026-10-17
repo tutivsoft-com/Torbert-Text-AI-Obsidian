@@ -1,27 +1,27 @@
-## 5.8.61 — 2026-10-08
+## 5.8.61 - 2026-10-08
 
 - Refresh the public product documentation and synchronize release metadata.
 - Preserve the existing plugin behavior.
 
-## 5.8.60 — loyalty offer copy flow (2026-10-07, published)
+## 5.8.60 - loyalty offer copy flow (2026-10-07, published)
 
 A static coupon offer includes a Copy code action. Server catalog prices and checkout remain authoritative.
 
-## 5.8.54 — settings layout, 2026-10-06 (historical source update)
+## 5.8.54 - settings layout, 2026-10-06 (historical source update)
 
 
-## 5.8.53 — documentation and version synchronization (2026-10-06)
+## 5.8.53 - documentation and version synchronization (2026-10-06)
 
 - Replace contradictory current-state documentation with references derived from the current code, commands, settings and dependency closure.
 - Remove superseded guidance and unsupported model/source inferences; retain dated validation evidence with its original version.
 
-## 5.8.52 — error recovery (2026-10-06, private/local)
+## 5.8.52 - error recovery (2026-10-06, private/local)
 
 - Guard host callbacks and detached background work against synchronous errors and Promise rejections; preserve internal transaction failure propagation.
 - Print full error objects/stacks in the local console, retain bounded summary-only copied logs, and avoid assimilating fluent Setting values as Promises.
 - Add fault-injection tests and scope global runtime reports to their originating plugin.
 
-## 5.8.51 — diagnostic logging (2026-10-06)
+## 5.8.51 - diagnostic logging (2026-10-06)
 
 
 
@@ -29,38 +29,38 @@ Short first-use guidance, direct Help/account navigation, optional Advanced sett
 
 # Release notes
 
-## 5.8.49 — Source preparation (2026-10-05)
+## 5.8.49 - Source preparation (2026-10-05)
 
 - Incremented source metadata from 5.8.48 and synchronized the existing version surfaces.
 - Reconciled current documentation with the model, account/billing path and release state in code.
 
-## 5.8.43 — Transformation guide version correction
+## 5.8.43 - Transformation guide version correction
 
 - Correct the current transformation reference version; its content was checked against the matching unchanged implementation.
 
 
-## 5.8.42 — Constance account recovery
+## 5.8.42 - Constance account recovery
 
 - Save successful account sessions before installation linking; preserve sessions when billing is temporarily unavailable and clear tokens rejected by the server.
 - Preserve structured account error codes and show accurate sign-in and email-verification guidance.
 
-## 5.8.40 — Release packaging update (2026-10-02)
+## 5.8.40 - Release packaging update (2026-10-02)
 
 - Synchronized source version metadata and current documentation only; no runtime implementation changed.
 - Rebuilt and validated this release package at 5.8.40. No runtime behavior changed.
 
-## 5.8.39 — Billing balance refresh and checkout settlement
+## 5.8.39 - Billing balance refresh and checkout settlement
 
 - Load the authenticated entitlement balance on settings open and refresh the visible balance when checkout settles.
 - Show the approved 50,000, 150,000, 450,000, and 1,200,000 character offers using current Paddle prices and descriptions from Constance; submit the selected exact price ID.
 
-## 5.8.34 — Billing session and verification fixes
+## 5.8.34 - Billing session and verification fixes
 
 - Persist and rotate refresh tokens before access expiry; clear and revoke the complete session on sign out.
 - Registration requiring verification stays pending and cannot link an installation.
 - Lock the signed-in email until sign out and expose central password recovery.
 
-## 5.8.38 — Direct OpenRouter and billing boundary
+## 5.8.38 - Direct OpenRouter and billing boundary
 
 - Restore direct OpenRouter requests using Torbert's established managed-key manifest or an optional personal key.
 - Keep Constance focused on account access, character balances and usage debits, and Paddle checkout.
@@ -68,7 +68,7 @@ Short first-use guidance, direct Help/account navigation, optional Advanced sett
 - Display current Paddle offer details and submit the configured price ID through authenticated Constance checkout.
 
 
-## 5.8.32 — Account and credit clarity
+## 5.8.32 - Account and credit clarity
 
 - Moved account and billing controls to the top of settings.
 - Simplified account controls to email, password, Register, Sign in, Sign out, balance refresh, and purchase buttons.
@@ -217,6 +217,6 @@ This release keeps the plugin behavior unchanged while making the codebase much 
 
 Torbert applies transformations directly by default. Before-and-after batch previews are optional and off by default in Settings.
 
-## MVP selection update — 6 October 2026
+## MVP selection update - 6 October 2026
 
 5.8.58: Reviewed recursive file/folder/mixed-selection handling and overlap deduplication. No functional source change was needed in this app.

@@ -3,6 +3,19 @@ import { diagnostics } from "./diagnostics";
 import { renderAccountGuidance } from "./account-guidance";
 import { Notice, Setting, requestUrl } from "obsidian";
 
+const pendingConnections = new WeakSet<object>();
+async function connectWithinDeadline(state: object, operation: () => Promise<unknown>, refresh: () => void): Promise<void> {
+  if (pendingConnections.has(state)) throw new Error("account_connection_pending");
+  pendingConnections.add(state);
+  const request = Promise.resolve().then(operation);
+  const finish = () => { pendingConnections.delete(state); try { refresh(); } catch (_) {} };
+  request.then(finish, finish);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try { await Promise.race([request, new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("account_connection_pending")), 15000);
+  })]); } finally { if (timer !== undefined) clearTimeout(timer); }
+}
+
 export const CONSTANCE_ACCOUNT_BASE_URL = "https://app.tutivsoft.com";
 
 export interface ConstanceAccountState {
@@ -450,15 +463,15 @@ try {
 
       button.setDisabled(true);
       try {
-        await signInBillingAccount(adapter, password, "connect");
+        await connectWithinDeadline(adapter.state, () => signInBillingAccount(adapter, password, "connect"), () => adapter.refresh?.());
         password = "";
         new Notice(adapter.state.billingRegistrationPending ? "Check your email and follow the verification link, then Connect again." : `Connected as ${adapter.state.billingEmail}.`);
         adapter.refresh?.();
       } catch (error) {
 diagnostics.failure("constance-account.caught_7", error);
-        new Notice(error instanceof Error ? error.message : "Connection failed. Please try again.");
+        // Keep the account unlinked and allow the existing Connect action to retry.
         adapter.refresh?.();
-      } finally { button.setDisabled(adapter.state.billingAccountLinked); }
+      } finally { button.setDisabled(adapter.state.billingAccountLinked || pendingConnections.has(adapter.state)); }
 
 } catch (diagnosticError14) { diagnostics?.failure?.("control.connect.onClick", diagnosticError14); throw diagnosticError14; } finally { diagnosticEnd14(); }
 

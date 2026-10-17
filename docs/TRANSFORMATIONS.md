@@ -1,6 +1,6 @@
 # Torbert implemented transformations
 
-Current version: **5.8.61**.
+Current version: **5.8.67**.
 
 The table is derived from the current transformations object in src/transformations.ts. The source registers these transformations in menus/commands; menu visibility is configurable. Additional classification, reports and custom-prompt commands live in src/main.ts.
 
