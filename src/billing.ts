@@ -43,7 +43,7 @@ export function joinPublicPacks(products: any, appId = APP_ID): any[] {
 }
 
 export function addLivePacks(root: HTMLElement, plugin: TorbertTextAiPlugin): void {
-renderLivePacks(root,{state:plugin.settings,appId:"torbert-text-ai-obsidian",installationId:plugin.settings.constanceDeviceId,persist:()=>plugin.saveSettings(),syncBalance:async()=>{await syncEntitlements(plugin.settings,()=>plugin.saveSettings());(plugin as any).refreshBillingCredits?.();},refreshSession:()=>refreshBillingSession(plugin.settings,()=>plugin.saveSettings())});
+renderLivePacks(root,{state:plugin.settings,appId:"torbert-text-ai-obsidian",installationId:plugin.settings.constanceDeviceId,persist:()=>plugin.saveSettings(),syncBalance:async()=>{await syncEntitlements(plugin.settings,()=>plugin.saveSettings());(plugin as any).refreshBillingCredits?.();}});
 }
 
 const TORBERT_PLAN_CODES: Record<TorbertPackKey, "standard" | "pro" | "ultimate"> = {

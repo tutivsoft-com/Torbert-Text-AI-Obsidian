@@ -30,7 +30,7 @@ const diagnosticAction1 = () => {
     const { freeCharacters, purchasedCharacters } = this.plugin.settings;
     const totalChars = freeCharacters + purchasedCharacters;
     this.creditsSummaryEl.setText(
-      `Characters remaining: ${totalChars.toLocaleString()} (${freeCharacters.toLocaleString()} free + ${purchasedCharacters.toLocaleString()} purchased)`,
+      !this.plugin.settings.billingAccountLinked ? "Connect your account to load your free and purchased characters." : `Characters remaining: ${totalChars.toLocaleString()} (${freeCharacters.toLocaleString()} free + ${purchasedCharacters.toLocaleString()} purchased)`,
     );
 
 }; return diagnostics?.run ? diagnostics.run("settings-tab.renderCreditsSummary", diagnosticAction1) : diagnosticAction1();
@@ -115,7 +115,7 @@ diagnosticStage11();
 
     const diagnosticStage12 = diagnostics?.start?.("settings.render.stage_3") ?? (() => {});
 containerEl.createEl("p", {
-      text: "AI actions use one credit per input character. Each account includes 2,000 free characters on the account, shared across installations. Purchase more credits below.",
+      text: "AI actions use one credit per input character. Free and purchased characters are shared across installations. Connect your account to see your current allowance.",
     });
 diagnosticStage12();
 
