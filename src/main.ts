@@ -576,7 +576,7 @@ try {
       new Notice("Torbert: a previous charge is still being confirmed. Please retry when the connection is restored.");
       return false;
     }
-    const stableEventId = `consume_${generateEventId()}`;
+    const stableEventId = `v2consume_${generateEventId()}`;
     this.settings.pendingSpendEvents.push({ eventId: stableEventId, amount: cost });
     await this.saveSettings();
     const result = await spendConstanceCredits(this, cost, stableEventId);
@@ -620,6 +620,10 @@ try {
       }
 
       const selection = targetEditor.getSelection();
+      const originalValue = targetEditor.getValue();
+      const originalRange = JSON.stringify([targetEditor.getCursor("from"), targetEditor.getCursor("to")]);
+      const editorUnchanged = () => targetEditor.getValue() === originalValue
+        && JSON.stringify([targetEditor.getCursor("from"), targetEditor.getCursor("to")]) === originalRange;
       if (transformation.requiresSelection && !selection) {
         new Notice("This command requires a text selection.");
         return;
@@ -627,7 +631,7 @@ try {
 
       // Preserve the original plugin behavior: selected text wins; otherwise
       // transform the full active editor contents.
-      const textToTransform = selection || targetEditor.getValue();
+      const textToTransform = selection || originalValue;
       if (transformation.requiresAi && !queued) {
         this.queueAiTask(transformation.name, textToTransform, () => this.applyTransformationToEditor(editor, transformationId, true));
         return;
@@ -638,6 +642,13 @@ try {
       const abortSignal = processingNotice.abortSignal;
       const { result: transformationResult, usage } = await collectAiUsageDuring(() => Promise.resolve(transformation.transform(textToTransform, { settings: this.settings, abortSignal })));
       const { newText, noticeText } = transformationResult;
+
+      processingNotice.throwIfCancelled();
+      if (newText === textToTransform) {
+        new Notice(noticeText);
+        this.showAiUsage(transformation.name, usage);
+        return;
+      }
 
       if (newText !== textToTransform && this.settings.reviewBeforeApply) {
         new BatchPreviewModal(
@@ -653,8 +664,7 @@ const diagnosticEnd13 = diagnostics?.start?.("main.background.23572") ?? (() => 
 try {
 
               try {
-                const currentText = selection ? targetEditor.getSelection() : targetEditor.getValue();
-                if (currentText !== textToTransform) {
+                if (!editorUnchanged()) {
                   new Notice("The text changed while the preview was open. Review the change again.");
                   return;
                 }
@@ -662,6 +672,10 @@ try {
                   return;
                 }
                 await this.recordEditorSnapshot(`Editor: ${transformation.name}`, targetEditor);
+                if (!editorUnchanged()) {
+                  new Notice("The text or selection changed while applying. Run the transformation again.");
+                  return;
+                }
                 if (selection) {
                   targetEditor.replaceSelection(newText);
                 } else {
@@ -684,10 +698,14 @@ diagnostics.failure("main.caught_32", error);
       }
 
       if (newText !== textToTransform) {
-        const currentText = selection ? targetEditor.getSelection() : targetEditor.getValue();
-        if (currentText !== textToTransform) { new Notice("The text changed while processing. Run the transformation again."); return; }
+        if (!editorUnchanged()) { new Notice("The text changed while processing. Run the transformation again."); return; }
         if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) return;
         await this.recordEditorSnapshot(`Editor: ${transformation.name}`, targetEditor);
+      }
+      processingNotice.throwIfCancelled();
+      if (!editorUnchanged()) {
+        new Notice("The text or selection changed while applying. Run the transformation again.");
+        return;
       }
       if (selection) {
         targetEditor.replaceSelection(newText);
@@ -758,7 +776,10 @@ try {
                   path: file.path,
                   content: fileContents,
                 }]);
-                await this.app.vault.modify(file, newText);
+                await this.app.vault.process(file, (current) => {
+                  if (current !== fileContents) throw new Error("The note changed while applying. Run the transformation again.");
+                  return newText;
+                });
                 new Notice(`${noticeText} in ${file.name}`);
                 this.showAiUsage(`${transformation.name} on ${file.name}`, usage);
                 this.logger.info("applyTransformationToFile", `Applied '${transformationId}' to ${file.path}.`);
@@ -780,7 +801,11 @@ diagnostics.failure("main.caught_35", error);
         if (currentContents !== fileContents) { new Notice(`The note changed while processing. Run ${transformation.name} again.`); return; }
         if (transformation.requiresAi && !(await this.chargeCharacters(fileContents.length))) return;
         await this.recordOperation(`File: ${transformation.name}`, [{ path: file.path, content: fileContents }]);
-        await this.app.vault.modify(file, newText);
+        processingNotice.throwIfCancelled();
+        await this.app.vault.process(file, (current) => {
+          if (current !== fileContents) throw new Error("The note changed while applying. Run the transformation again.");
+          return newText;
+        });
       }
 
       if (!processingNotice.wasCancelled()) {
@@ -920,7 +945,10 @@ try {
             reportItems.push({ path: pendingWrite.file.path, status: "failed", message: "changed since preview" });
             continue;
           }
-          await this.app.vault.modify(pendingWrite.file, pendingWrite.newText);
+          await this.app.vault.process(pendingWrite.file, (current) => {
+            if (current !== pendingWrite.oldText) throw new Error("The note changed while applying. Run the transformation again.");
+            return pendingWrite.newText;
+          });
           reportItems.push({ path: pendingWrite.file.path, status: "changed", message: transformations[transformationId]?.name || transformationId });
         } catch (error) {
 diagnostics.failure("main.caught_40", error);

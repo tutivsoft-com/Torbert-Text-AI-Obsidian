@@ -1,46 +1,58 @@
 import { diagnostics } from "./diagnostics";
 import { requestUrl } from "obsidian";
+import { CONSTANCE_API, BILLING_UNIT, accountBalance } from "./constance-v2";
 
 export interface AccountCreditHost {
-  state: { billingAccountLinked: boolean; billingAccessToken: string; billingRefreshToken: string };
-  appId: string;
-  installationId: string;
-  refreshSession: () => Promise<boolean>;
+  state: { billingAccountLinked: boolean; billingAccessToken: string; billingRefreshToken: string; billingEmail?: string };
+  appId: string; installationId: string;
+  refreshSession(): Promise<boolean>;
 }
 export type AccountCreditResult =
   | { kind: "ok"; freeUnits: number; paidUnits: number; freeRemaining?: number; balance?: number }
   | { kind: "insufficient" | "auth-required" | "error" };
 
-/** One authenticated, atomic operation: account lifetime allowance first, purchased units next. */
+/** The caller persists v2consume_ keys and their owner before the first request. */
 export async function consumeAccountUnits(host: AccountCreditHost, eventId: string, amount: number): Promise<AccountCreditResult> {
-const diagnosticEnd1 = diagnostics?.start?.("account-credit-client.consumeAccountUnits") ?? (() => {});
-try {
-
   if (!host.state.billingAccountLinked || !host.installationId) return { kind: "auth-required" };
-  if (!Number.isSafeInteger(amount) || amount <= 0 || !eventId) return { kind: "error" };
-  if (!host.state.billingAccessToken && !await host.refreshSession()) return { kind: host.state.billingRefreshToken ? "error" : "auth-required" };
-  const send = () => (diagnostics?.request?.("network.account-credit-client.consumeAccountUnits", requestUrl, { url: "https://app.tutivsoft.com/api/v1/billing/usage/consume", method: "POST", throw: false,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${host.state.billingAccessToken}` },
-    body: JSON.stringify({ app_id: host.appId, installation_id: host.installationId, event_id: eventId, amount }) }) ?? requestUrl({ url: "https://app.tutivsoft.com/api/v1/billing/usage/consume", method: "POST", throw: false,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${host.state.billingAccessToken}` },
-    body: JSON.stringify({ app_id: host.appId, installation_id: host.installationId, event_id: eventId, amount }) }));
+  if (!Number.isSafeInteger(amount) || amount <= 0 || !eventId.startsWith("v2consume_")) return { kind: "error" };
+  const owner = host.state.billingEmail;
+  const current = () => host.state.billingAccountLinked && host.state.billingEmail === owner;
+  const send = async (path: string, body?: unknown): Promise<any> => {
+    if (!current()) return { status: 401 };
+    if (!host.state.billingAccessToken && !await host.refreshSession()) return { status: 401 };
+    const request = () => requestUrl({ url: `${CONSTANCE_API}${path}`, method: body ? "POST" : "GET", throw: false,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${host.state.billingAccessToken}` }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    let response = await request();
+    if (response.status === 401 && host.state.billingRefreshToken && await host.refreshSession() && current()) response = await request();
+    return response;
+  };
+  const valid = (op: any) => op?.app_id === host.appId && op?.unit === BILLING_UNIT && op?.units === amount
+    && typeof op.operation_id === "string" && !!op.operation_id
+    && Number.isSafeInteger(op.free_units) && op.free_units >= 0 && Number.isSafeInteger(op.paid_units) && op.paid_units >= 0
+    && (["reserved", "committed"].includes(op.state) ? op.free_units + op.paid_units === amount : op.state === "denied" && op.free_units === 0 && op.paid_units === 0);
   try {
-    let response = await send();
-    if (response.status === 401 && host.state.billingRefreshToken) {
-      if (!await host.refreshSession()) return { kind: host.state.billingRefreshToken ? "error" : "auth-required" };
-      response = await send();
-    }
-    if (response.status === 402) return { kind: "insufficient" };
+    let response = await send("/billing/operations", { app_id: host.appId, unit: BILLING_UNIT, units: amount, retry_key: eventId });
+    if (!current()) return { kind: "error" };
     if (response.status === 401 || response.status === 403) return { kind: "auth-required" };
-    if (response.status < 200 || response.status >= 300) return { kind: "error" };
-    const data = response.json?.data;
-    if (data?.state !== "committed" || data.app_id !== host.appId || data.installation_id !== host.installationId || data.event_id !== eventId || data.amount !== amount || !Number.isSafeInteger(data.free_units) || !Number.isSafeInteger(data.paid_units) || data.free_units < 0 || data.paid_units < 0 || (data.free_units + data.paid_units !== amount && !(data.retained_access === true && data.free_units === 0 && data.paid_units === 0 && (data.legacy_units ?? 0) === 0))) return { kind: "error" };
-    const freeRemaining = Number(data.free_usage?.remaining), balance = Number(data.credits?.total_available ?? data.credits?.balance);
-    return { kind: "ok", freeUnits: data.free_units, paidUnits: data.paid_units,
-      ...(Number.isFinite(freeRemaining) ? { freeRemaining: Math.max(0, freeRemaining) } : {}),
-      ...(Number.isFinite(balance) ? { balance: Math.max(0, balance) } : {}) };
-  } catch (caughtError1) {
-diagnostics.failure("account-credit-client.caught_2", caughtError1); return { kind: "error" }; }
-
-} catch (diagnosticError1) { diagnostics?.failure?.("account-credit-client.consumeAccountUnits", diagnosticError1); throw diagnosticError1; } finally { diagnosticEnd1(); }
+    if (response.status < 200 || response.status >= 300 || !valid(response.json?.data)) return { kind: "error" };
+    let op = response.json.data;
+    if (op.state === "denied") return { kind: "insufficient" };
+    if (op.state === "reserved") {
+      const original = op;
+      response = await send(`/billing/operations/${encodeURIComponent(op.operation_id)}/commit`, {});
+      op = response.json?.data;
+      if (!current() || response.status < 200 || response.status >= 300 || !valid(op) || op.operation_id !== original.operation_id
+        || op.free_units !== original.free_units || op.paid_units !== original.paid_units) return { kind: "error" };
+    }
+    if (op.state !== "committed") return { kind: "error" };
+    // A balance read can fail after a confirmed debit. Keep the receipt authoritative.
+    let balance: any;
+    try {
+      const result = await send(`/billing/entitlements/me?app_id=${encodeURIComponent(host.appId)}`);
+      if (result.status === 200 && current()) balance = accountBalance(result.json?.data, host.appId);
+    } catch (_) { /* The next refresh recovers the balance. */ }
+    if (!current()) return { kind: "error" };
+    return { kind: "ok", freeUnits: op.free_units, paidUnits: op.paid_units,
+      ...(balance ? { freeRemaining: balance.free_usage.remaining, balance: balance.credits.balance } : {}) };
+  } catch (error) { diagnostics.failure("account-credit-client.consume", error); return { kind: "error" }; }
 }

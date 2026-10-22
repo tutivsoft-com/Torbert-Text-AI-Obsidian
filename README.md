@@ -1,71 +1,29 @@
 # Torbert Text AI
 
-Clean up Markdown locally and use optional AI to highlight, summarize or classify notes.
+Apply the existing text transformations and AI writing commands to selected text or notes.
 
-**Best for:** Obsidian users editing Markdown and reviewing longer notes.
+## Use
 
-## Top 10 features
+Install or update the plugin through Obsidian Community plugins, enable it, and open its settings. Use the existing plugin commands for the selected note, text or files. Existing preferences and local recovery records are retained.
 
-1. Clean up text locally.
-2. Change text case.
-3. Transform lines and Markdown.
-4. Convert bold text to highlights.
-5. Create AI reading highlights.
-6. Summarize notes with AI.
-7. Classify folder content.
-8. Run custom AI prompts.
-9. Review weak-title and duplicate-note reports.
-10. Restore the last supported change.
+## Account and billing
 
-## Example workflow
+Connect your Constance account in plugin settings. If you create an account, confirm the email link and then connect again. Authentication, current offers, free allowance, purchased balance and payment confirmation use the Constance v2 service at https://app.tutivsoft.com.
 
-**Before:** A long note mixes untidy formatting with key points buried in paragraphs.
+Current paid names, descriptions, prices, currencies and included units come from the payment provider through Constance. Refresh the displayed offers before buying. If current pricing cannot be verified, buying is unavailable. Only canonical payment fulfillment grants credits. A completed purchase stays saved until the refreshed balance is saved and acknowledged. Pending requests retain their original identity after a retry or restart. Use Check payment or Cancel current purchase in the billing section when needed.
 
-**After:** Apply local cleanup, then request highlights or a summary to make the note easier to review.
+New purchases use Paddle and USD. Existing historical purchases retain their original provider. No payment credentials are bundled in the plugin.
 
-## Pricing
+## Privacy and recovery
 
-A connected account includes 10,000 characters as a one-time lifetime allowance. Previous use counts toward that allowance.
+Account requests send authentication and billing information to Constance. Passwords are not saved. Session credentials and recovery state are kept in local plugin settings. Billing requests do not contain note or image contents. Requested AI actions send the selected input directly to the existing AI service. Basic app usage events use the existing analytics service without note contents. Diagnostic logs stay local unless you copy and share them.
 
-| Pack | USD price | Included units |
-|---|---:|---:|
-| Starter | $2.00 | 80,000 characters |
-| Standard | $4.00 | 240,000 characters |
-| Pro | $8.00 | 720,000 characters |
-| Ultimate | $14.00 | 1,800,000 characters |
-
-Packs are one-time purchases. Purchased units do not expire. Final tax and local currency are shown at checkout.
-
-## What to know
-
-Local transformations stay on your computer. Requested AI actions send the chosen text to an online service.
-
----
-
-## Discover Torbert Text AI
-
-Whether you need to clean up text locally or change text case, Torbert Text AI provides a focused workflow for Obsidian users editing Markdown and reviewing longer notes.
-
-### Common questions
-
-**What can I use it for?**
-
-You can clean up text locally, convert bold text to highlights or create AI reading highlights.
-
-**How do I get started?**
-
-Enable the plugin in Obsidian, open its settings and choose the action that fits your note. Connect your account for metered actions; the settings page shows your remaining allowance and available packs.
-
-### Search description
-
-Clean up Markdown locally and use optional AI to highlight, summarize or classify notes. Designed for Obsidian users editing Markdown and reviewing longer notes.
-
-### Related topics
-
-Obsidian text transformation, Markdown cleanup, AI note summary, reading highlights, custom prompts.
+Uncertain older billing records are retained and are never replayed as new v2 charges. Connect the original account and contact support if an earlier operation needs recovery.
 
 ## Release
 
-Version 5.8.67 was published on 17 October 2026. Its final Obsidian Community audit completed successfully. [Release assets](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian/releases/tag/5.8.67).
+Version 5.8.71 is prepared for the manual Community publication checks. A source push alone does not publish a plugin update. Installable updates use a matching version tag and the three assets main.js, manifest.json and styles.css.
 
-Basic app usage events are sent to https://atcdn.cyou without note contents. Account and purchase operations use Constance.
+## Support
+
+Use the plugin's Help or Open documentation command and the support links in its manifest. For a billing problem, retain the original purchase or operation identity and use the account portal. Do not share passwords or session tokens.
