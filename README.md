@@ -22,7 +22,7 @@ Uncertain older billing records are retained and are never replayed as new v2 ch
 
 ## Release
 
-Version 5.8.71 is prepared for the manual Community publication checks. A source push alone does not publish a plugin update. Installable updates use a matching version tag and the three assets main.js, manifest.json and styles.css.
+Version 5.8.71 was published on 22 October 2026. Its exact-source preview and final Community release audit are Completed, and Current release shows 5.8.71. The matching GitHub release has main.js, manifest.json and styles.css with verified hashes.
 
 ## Support
 
