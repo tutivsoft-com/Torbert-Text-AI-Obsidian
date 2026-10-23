@@ -22,7 +22,7 @@ Uncertain older billing records are retained and are never replayed as new v2 ch
 
 ## Release
 
-Version 5.8.78 contains the settings and payment-status improvements. The bundle is built and validated for publication. Community review and release confirmation are pending.
+Version 5.8.78 contains the settings and payment-status improvements. Its exact-source preview and final Community audit completed, and it is confirmed as Current release. Install or update through Obsidian Community plugins.
 
 ## Support
 
