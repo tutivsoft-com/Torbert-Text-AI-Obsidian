@@ -24,7 +24,7 @@ Uncertain older billing records are retained and are never replayed as new v2 ch
 
 Version 5.8.84: Text and AI actions, folder reports and saved prompts retain Restore. Settings now describe immediate application and Restore accurately.
 
-Use the matching GitHub release for installation availability. Community directory review is separate from source validation.
+Obsidian Community release **5.8.84** requires Obsidian **1.5.0** or later. [GitHub release](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian/releases/tag/5.8.84).
 
 ## Support
 
