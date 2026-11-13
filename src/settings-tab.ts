@@ -97,15 +97,7 @@ return diagnostics.guard("settings-tab.control_3", () => { const diagnosticActio
 diagnosticStage9();
 
     const diagnosticStage10 = diagnostics?.start?.("settings.render.review_before_applying") ?? (() => {});
-new Setting(containerEl).setName("Review before applying").setDesc("Review changes to notes and folders before applying them. Off by default.").addToggle((toggle) => toggle.setValue(this.plugin.settings.reviewBeforeApply).onChange(async (value) => {
-return diagnostics.guard("settings-tab.control_4", async () => {
-const diagnosticEnd41 = diagnostics?.start?.("control.review_before_applying.onChange") ?? (() => {});
-try {
- this.plugin.settings.reviewBeforeApply = value; await this.plugin.saveSettings();
-} catch (diagnosticError41) { diagnostics?.failure?.("control.review_before_applying.onChange", diagnosticError41); throw diagnosticError41; } finally { diagnosticEnd41(); }
-
-});
-}));
+new Setting(containerEl).setName("Applying changes").setDesc("Commands apply immediately. Use Restore last change to recover the previous text or file location.");
 diagnosticStage10();
 
 

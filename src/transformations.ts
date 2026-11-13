@@ -503,7 +503,7 @@ try {
 
       return {
         newText,
-        noticeText: count > 0 ? `Extracted ${count} action item(s).` : "Added an Action Items section.",
+        noticeText: count > 0 ? `Extracted ${count} action item(s).` : "No action items found.",
       };
     },
   },

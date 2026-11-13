@@ -129,7 +129,7 @@ diagnosticStartupEnd = diagnostics?.start?.("startup.initialize") ?? (() => {});
       this.logger.info("Plugin.onload", "Plugin is loading.");
 
       // Background balance sync; never blocks load, fails silently offline.
-      void diagnostics.guard("main.background_1", () => (syncPurchasedCharactersFromConstance(this).then(() => retryPendingSpendEvents(this))));
+      if (this.settings.billingAccountLinked) void diagnostics.guard("main.background_1", () => (syncPurchasedCharactersFromConstance(this).then(() => retryPendingSpendEvents(this))));
       resumePendingCheckout(this);
       resumePendingPaddleCheckout(this);
 

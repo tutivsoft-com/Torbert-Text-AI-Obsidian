@@ -120,16 +120,15 @@ export const extractActionItems = (text: string): string[] => {
     .replace(/^## Action Items\s*\n+[\s\S]*?(?=\n#{1,6}\s|\s*$)/im, "")
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line && actionPatterns.some((pattern) => pattern.test(line)))
+    .filter((line) => line && !/^[-*+]\s+\[[xX]\]/.test(line) && (/^[-*+]\s+\[ \]/.test(line) || actionPatterns.some((pattern) => pattern.test(line))))
     .map((line) => line.replace(/^[-*+]\s+/, "").replace(/^\[[ xX]\]\s+/, "").trim())
     .map((line) => `- [ ] ${line}`))];
 };
 
 export const applyActionItemsSection = (text: string): { newText: string; count: number } => {
   const actionItems = extractActionItems(text);
-  const section = actionItems.length > 0
-    ? `## Action Items\n\n${actionItems.join("\n")}`
-    : "## Action Items\n\n- [ ] Review this note for next steps.";
+  if (!actionItems.length) return { newText: text, count: 0 };
+  const section = `## Action Items\n\n${actionItems.join("\n")}`;
 
   if (/^## Action Items\s*$/im.test(text)) {
     return {
