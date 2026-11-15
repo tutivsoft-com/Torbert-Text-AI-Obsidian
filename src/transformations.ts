@@ -60,7 +60,8 @@ const shouldSkipReadingHighlightLine = (line: string, inCodeBlock: boolean): boo
 
   return inCodeBlock
     || !trimmed
-    || trimmed.startsWith("```")
+    || /^(?:`{3,}|~{3,})/.test(trimmed)
+    || /(?:`|!?\[[^\]]*\](?:\(|\[)|\[\[|https?:\/\/)/.test(trimmed)
     || trimmed.includes("==")
     || /^#{1,6}\s+/.test(trimmed)
     || trimmed.includes("|")
@@ -105,25 +106,39 @@ const fallbackReadingHighlights = (line: string, maxHighlights: number): string 
 
 const sanitizeAiReadingHighlights = (originalText: string, aiText: string): { newText: string; changedCount: number } => {
   const originalLines = originalText.split("\n");
-  const aiLines = aiText.split("\n");
-  let inCodeBlock = false;
+  const candidates = new Map<string, string>();
+  for (const line of aiText.split(/\r?\n/)) {
+    const candidate = line.trim();
+    const key = stripHighlights(candidate);
+    if (key && (!candidates.has(key) || (candidates.get(key) === key && candidate !== key))) {
+      candidates.set(key, candidate);
+    }
+  }
+  const frontmatter = originalText.match(/^---[ \t]*\r?\n[\s\S]*?^(?:---|\.\.\.)[ \t]*(?=\r?$)/m);
+  const frontmatterLines = frontmatter?.index === 0 ? frontmatter[0].split("\n").length : 0;
+  let fence: string | undefined;
   let changedCount = 0;
 
   const newLines = originalLines.map((originalLine, index) => {
-    const aiLine = aiLines[index];
-    const wasInCodeBlock = inCodeBlock;
-
-    if (originalLine.trim().startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
+    if (index < frontmatterLines) return originalLine;
+    const trimmed = originalLine.trim();
+    const marker = trimmed.match(/^(?:`{3,}|~{3,})/)?.[0];
+    if (marker) {
+      if (!fence) fence = marker;
+      else if (marker[0] === fence[0] && marker.length >= fence.length && marker === trimmed) fence = undefined;
+      return originalLine;
     }
-
-    if (aiLine === undefined || shouldSkipReadingHighlightLine(originalLine, wasInCodeBlock) || stripHighlights(aiLine) !== originalLine) {
+    const aiLine = candidates.get(trimmed);
+    if (aiLine === undefined || shouldSkipReadingHighlightLine(originalLine, Boolean(fence))) {
       return originalLine;
     }
 
     const maxHighlights = countWords(readingHighlightContent(originalLine)) < 20 ? 3 : 5;
-    const cappedLine = capReadingHighlights(aiLine, maxHighlights);
-    const finalLine = cappedLine === originalLine ? fallbackReadingHighlights(originalLine, maxHighlights) : cappedLine;
+    const markdownPrefix = trimmed.match(/^(?:>[ \t]*)*(?:(?:[-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)?/)?.[0] ?? "";
+    const cappedLine = aiLine.startsWith(markdownPrefix) ? capReadingHighlights(aiLine, maxHighlights) : trimmed;
+    const finalLine = cappedLine === trimmed
+      ? fallbackReadingHighlights(originalLine, maxHighlights)
+      : originalLine.replace(trimmed, () => cappedLine);
 
     if (finalLine !== originalLine) {
       changedCount++;
@@ -312,7 +327,7 @@ try {
 
       return {
         newText,
-        noticeText: changedCount > 0 ? `AI highlighted keywords in ${changedCount} line(s).` : "No safe lines found for AI keyword highlighting.",
+        noticeText: changedCount > 0 ? `AI highlighted keywords in ${changedCount} line(s).` : "No highlights added. Torbert kept the original text.",
       };
 
 } catch (diagnosticError1) { diagnostics?.failure?.("transformations.background.10038", diagnosticError1); throw diagnosticError1; } finally { diagnosticEnd1(); }

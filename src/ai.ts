@@ -219,7 +219,7 @@ interface OpenAiOutputItem {
 interface OpenAiResponse {
   output_text?: string;
   output?: OpenAiOutputItem[];
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   usage?: TokenUsage;
   error?: {
     message?: string;
@@ -229,7 +229,7 @@ interface OpenAiResponse {
 const OPENAI_REQUEST_TIMEOUT_MS = 120000;
 const FULL_TEXT_CHUNK_CHAR_LIMIT = 48000;
 const FULL_TEXT_HARD_CHUNK_CHAR_LIMIT = 90000;
-const FULL_TEXT_CONTEXT_CHAR_LIMIT = 1600;
+const FULL_TEXT_CONTEXT_CHAR_LIMIT = 8000;
 const SUSPICIOUS_OUTPUT_RATIO_LOW = 0.55;
 const SUSPICIOUS_OUTPUT_RATIO_HIGH = 1.8;
 
@@ -344,7 +344,7 @@ try {
     "Preserve important names, dates, decisions, and next actions.",
     "Do not wrap the result in quotes or code fences.",
   ].join(" "), [
-    "Create a short summary from this sampled note content.",
+    "Create a short summary from this note content.",
     "",
     buildThreePartSample(text),
   ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " ")));
@@ -366,7 +366,7 @@ try {
     "Do not include the delimiter :-:.",
     "Do not wrap the result in quotes or code fences.",
   ].join(" "), [
-    "Create a short prefix from this sampled note content.",
+    "Create a short prefix from this note content.",
     "",
     buildThreePartSample(text),
   ].join("\n"), undefined, abortSignal).then((summary) => summary.trim().replace(/\s+/g, " ").replace(/:-:/g, "").trim()));
@@ -387,19 +387,20 @@ try {
   ].join(" "), [
     `Allowed folders: ${folderList.join(", ")}`,
     "",
-    "Choose the best folder for this sampled note content.",
+    "Choose the best folder for this note content.",
     "",
     buildThreePartSample(text),
   ].join("\n"), undefined, abortSignal);
   const normalized = sanitizeFolderName(rawFolder);
   const exactMatch = folderList.find((folder) => folder.toLowerCase() === normalized.toLowerCase());
 
-  return await (exactMatch || folderList[0]);
+  if (!exactMatch) throw new Error("The AI did not choose an allowed folder. The note was not moved.");
+  return exactMatch;
 
 } catch (diagnosticError11) { diagnostics?.failure?.("ai.classifyFolderFromContent", diagnosticError11); throw diagnosticError11; } finally { diagnosticEnd11(); }
 }
 
-export function buildThreePartSample(text: string, maxCharacters = 5000): string {
+export function buildThreePartSample(text: string, maxCharacters = 32000): string {
   if (text.length <= maxCharacters) {
     return text;
   }
@@ -456,12 +457,12 @@ const diagnosticEnd12 = diagnostics?.start?.("ai.requestOpenAiText") ?? (() => {
 try {
 
   const controller = new AbortController();
-  const abortFromCaller = () => { const diagnosticAction13 = () => (controller.abort()); return diagnostics?.run ? diagnostics.run("ai.abortFromCaller", diagnosticAction13) : diagnosticAction13(); };
+  const abortFromCaller = diagnostics.wrap("ai.event_2", () => controller.abort());
   const timeout = window.setTimeout(() => diagnostics.guard("ai.timer_1", () => (controller.abort())), OPENAI_REQUEST_TIMEOUT_MS);
   if (abortSignal?.aborted) {
     controller.abort();
   } else {
-    abortSignal?.addEventListener("abort", diagnostics.wrap("ai.event_2", abortFromCaller), { once: true });
+    abortSignal?.addEventListener("abort", abortFromCaller, { once: true });
   }
 
   try {
@@ -471,7 +472,7 @@ try {
     return await requestOpenAiResponsesText(settings, instructions, input, modelOverride, controller.signal);
   } catch (error) {
 diagnostics.failure("ai.caught_3", error);
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (error instanceof DOMException && error.name === "AbortError" && !abortSignal?.aborted) {
       throw new Error("OpenRouter request timed out.");
     }
 
@@ -522,13 +523,16 @@ try {
       "Do not add headings, separators, code fences, explanations, or chunk markers.",
       "Preserve the chunk's leading and trailing newlines exactly unless the requested edit requires changing those characters.",
     ].join(" ");
-    outputs.push(await requestOpenAiText(
+    const output = await requestOpenAiText(
       settings,
       chunkInstructions,
       buildChunkPrompt(userInstruction, label, chunk, index + 1, chunks.length, previousContext, nextContext),
       modelOverride,
       abortSignal,
-    ));
+    );
+    // Models sometimes trim the separator at the end of a chunk.
+    const separator = chunk.match(/(?:\r?\n)+$/)?.[0];
+    outputs.push(index < chunks.length - 1 && separator && !output.endsWith("\n") ? output + separator : output);
   }
 
   return await (outputs.join(""));
@@ -576,6 +580,9 @@ export function splitTextForAi(text: string, limit: number): string[] {
         }
       }
     }
+    // Keep UTF-16 surrogate pairs and CRLF together at hard boundaries.
+    const boundary = text.slice(end - 1, end + 1);
+    if (/^[\uD800-\uDBFF][\uDC00-\uDFFF]$|^\r\n$/.test(boundary)) end++;
     chunks.push(text.slice(start, end));
     start = end;
   }
@@ -652,6 +659,10 @@ diagnostics.failure("ai.caught_extra_4", error);
     throw new Error(data.error?.message || `The AI request failed. Check your connection and try again.`);
   }
 
+  if (data.choices?.[0]?.finish_reason === "length") {
+    throw new Error("The AI response reached its output limit. Try a smaller selection.");
+  }
+
   const outputText = data.choices?.[0]?.message?.content
     || data.output_text
     || data.output
@@ -660,7 +671,7 @@ diagnostics.failure("ai.caught_extra_4", error);
       .map((content) => content.text)
       .join("");
 
-  if (!outputText) {
+  if (!outputText?.trim()) {
     throw new Error("No AI result was returned. Try again.");
   }
 

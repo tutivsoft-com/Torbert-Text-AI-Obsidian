@@ -109,8 +109,7 @@ try {
         try {
           const value = await job.run(report);
           const elapsed = Math.max(0, Math.floor((Date.now() - job.startedAt) / 1000));
-          this.lastCompletion = `${job.label} completed in ${elapsed} second${elapsed === 1 ? "" : "s"}.`;
-          new Notice(`${this.appName}: ${this.lastCompletion}`, 4000);
+          this.lastCompletion = `${job.label}: processing ended after ${elapsed} second${elapsed === 1 ? "" : "s"}.`;
           job.resolve({ status: "completed", value });
         } catch (error) {
 diagnostics.failure("ai-request-queue.caught_5", error);
