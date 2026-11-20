@@ -15,6 +15,13 @@ import type { CustomPromptPreset, OperationHistoryEntry, OperationHistorySnapsho
 import { PluginSupport } from "./plugin-support";
 import { AiRequestQueue, type QueueReporter } from "./ai-request-queue";
 
+interface EditorTarget {
+  file: TFile;
+  content: string;
+  selection: string;
+  range: string;
+}
+
 interface BatchReportItem {
   path: string;
   newPath?: string;
@@ -601,7 +608,7 @@ try {
 }
 
   /** Preview and apply a transformation to the active editor or current selection. */
-  async applyTransformationToEditor(editor: Editor | null, transformationId: TransformationId, queued = false): Promise<void> {
+  async applyTransformationToEditor(editor: Editor | null, transformationId: TransformationId, queuedTarget?: EditorTarget): Promise<void> {
 const diagnosticEnd12 = diagnostics?.start?.("main.applyTransformationToEditor") ?? (() => {});
 try {
 
@@ -619,11 +626,26 @@ try {
         return;
       }
 
-      const selection = targetEditor.getSelection();
-      const originalValue = targetEditor.getValue();
-      const originalRange = JSON.stringify([targetEditor.getCursor("from"), targetEditor.getCursor("to")]);
-      const editorUnchanged = () => targetEditor.getValue() === originalValue
-        && JSON.stringify([targetEditor.getCursor("from"), targetEditor.getCursor("to")]) === originalRange;
+      const active = this.app.workspace.activeEditor;
+      if (!active?.file || active.editor !== targetEditor) {
+        new Notice("Open the original note in the editor and run the command again.");
+        return;
+      }
+      const getRange = () => JSON.stringify([targetEditor.getCursor("from"), targetEditor.getCursor("to")]);
+      const target = queuedTarget ?? {
+        file: active.file,
+        content: targetEditor.getValue(),
+        selection: targetEditor.getSelection(),
+        range: getRange(),
+      };
+      const { selection, content: originalValue } = target;
+      const editorUnchanged = () => this.app.workspace.activeEditor?.file === target.file
+        && this.app.workspace.activeEditor?.editor === targetEditor
+        && targetEditor.getValue() === originalValue && getRange() === target.range;
+      if (queuedTarget && !editorUnchanged()) {
+        new Notice("The note or selection changed while queued. Run the command again.");
+        return;
+      }
       if (transformation.requiresSelection && !selection) {
         new Notice("This command requires a text selection.");
         return;
@@ -632,8 +654,8 @@ try {
       // Preserve the original plugin behavior: selected text wins; otherwise
       // transform the full active editor contents.
       const textToTransform = selection || originalValue;
-      if (transformation.requiresAi && !queued) {
-        this.queueAiTask(transformation.name, textToTransform, () => this.applyTransformationToEditor(editor, transformationId, true));
+      if (transformation.requiresAi && !queuedTarget) {
+        this.queueAiTask(transformation.name, textToTransform, () => this.applyTransformationToEditor(targetEditor, transformationId, target));
         return;
       }
       if (transformation.requiresAi) this.queueReporter?.({ label: `Processing ${transformation.name}`, submittedText: textToTransform });
@@ -650,61 +672,14 @@ try {
         return;
       }
 
-      if (newText !== textToTransform && this.settings.reviewBeforeApply) {
-        new BatchPreviewModal(
-          this.app,
-          `Review ${transformation.name}`,
-          [{
-            label: selection ? "Current selection" : "Current note",
-            detail: summarizeTextChange(textToTransform, newText),
-          }],
-          () => {
-            void diagnostics.guard("main.background_31", () => ((async () => {
-const diagnosticEnd13 = diagnostics?.start?.("main.background.23572") ?? (() => {});
-try {
-
-              try {
-                if (!editorUnchanged()) {
-                  new Notice("The text changed while the preview was open. Review the change again.");
-                  return;
-                }
-                if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) {
-                  return;
-                }
-                await this.recordEditorSnapshot(`Editor: ${transformation.name}`, targetEditor);
-                if (!editorUnchanged()) {
-                  new Notice("The text or selection changed while applying. Run the transformation again.");
-                  return;
-                }
-                if (selection) {
-                  targetEditor.replaceSelection(newText);
-                } else {
-                  targetEditor.setValue(newText);
-                }
-                new Notice(noticeText);
-                this.showAiUsage(transformation.name, usage);
-                this.logger.info("applyTransformationToEditor", `Applied '${transformationId}'. Notice: ${noticeText}`);
-              } catch (error) {
-diagnostics.failure("main.caught_32", error);
-                this.logger.error("applyTransformationToEditor", `Failed to apply '${transformationId}' after preview`, error);
-                new Notice("Error applying the reviewed change. The original text was kept.");
-              }
-
-} catch (diagnosticError13) { diagnostics?.failure?.("main.background.23572", diagnosticError13); throw diagnosticError13; } finally { diagnosticEnd13(); }
-})()));
-          },
-        ).open();
+      if (!editorUnchanged()) {
+        new Notice("The note or selection changed while processing. Run the command again.");
         return;
       }
-
-      if (newText !== textToTransform) {
-        if (!editorUnchanged()) { new Notice("The text changed while processing. Run the transformation again."); return; }
-        if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) return;
-        await this.recordEditorSnapshot(`Editor: ${transformation.name}`, targetEditor);
-      }
+      if (transformation.requiresAi && !(await this.chargeCharacters(textToTransform.length))) return;
       processingNotice.throwIfCancelled();
       if (!editorUnchanged()) {
-        new Notice("The text or selection changed while applying. Run the transformation again.");
+        new Notice("The note or selection changed while applying. Run the command again.");
         return;
       }
       if (selection) {
@@ -712,6 +687,7 @@ diagnostics.failure("main.caught_32", error);
       } else {
         targetEditor.setValue(newText);
       }
+      await this.recordOperation(`Editor: ${transformation.name}`, [{ path: target.file.path, content: originalValue }]);
 
       if (!processingNotice.wasCancelled()) {
         new Notice(noticeText);
@@ -848,7 +824,6 @@ try {
 
       processingNotice = this.startProcessingNotice(`Processing ${files.length} file(s) with ${transformations[transformationId]?.name || transformationId}`);
 
-      const snapshots: OperationHistorySnapshot[] = [];
       const pendingWrites: Array<{ file: TFile; oldText: string; newText: string }> = [];
       let processedCount = 0;
       let failedCount = 0;
@@ -873,10 +848,6 @@ try {
           this.showAiUsage(`${transformation.name} on ${file.name}`, usage);
 
           if (newText !== fileContents) {
-            snapshots.push({
-              path: file.path,
-              content: fileContents,
-            });
             pendingWrites.push({ file, oldText: fileContents, newText });
           }
 
@@ -894,16 +865,16 @@ diagnostics.failure("main.caught_37", error);
           detail: summarizeTextChange(item.oldText, item.newText),
         }));
         new BatchPreviewModal(this.app, `Review ${transformations[transformationId]?.name || transformationId}`, previewItems, () => {
-          void diagnostics.guard("main.background_38", () => (this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount)));
+          void diagnostics.guard("main.background_38", () => (this.applyPendingFolderWrites(folder, transformations[transformationId].name, pendingWrites, failedCount)));
         }).open();
         return;
       }
 
-      if (pendingWrites.length > 0) await this.applyPendingFolderWrites(folder, transformationId, pendingWrites, snapshots, processedCount, failedCount);
-
-      const failureText = failedCount > 0 ? ` ${failedCount} file(s) failed.` : "";
-      new Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
-      this.logger.info("applyTransformationToFolder", `Applied '${transformationId}' to ${processedCount} file(s) in ${folder.path}. Failed: ${failedCount}.`);
+      if (pendingWrites.length > 0) {
+        await this.applyPendingFolderWrites(folder, transformations[transformationId].name, pendingWrites, failedCount);
+      } else {
+        new Notice(`Changed 0 Markdown files in ${folder.name}.${failedCount ? ` ${failedCount} file(s) failed.` : ""}`);
+      }
 
     } catch (error) {
 diagnostics.failure("main.caught_39", error);
@@ -918,11 +889,10 @@ diagnostics.failure("main.caught_39", error);
 
   private async applyPendingFolderWrites(
     folder: TFolder,
-    transformationId: TransformationId,
+    name: string,
     pendingWrites: Array<{ file: TFile; oldText: string; newText: string }>,
-    snapshots: OperationHistorySnapshot[],
-    processedCount: number,
     failedCount: number,
+    kind: "Folder" | "Prompt" = "Folder",
   ): Promise<void> {
 const diagnosticEnd17 = diagnostics?.start?.("main.applyPendingFolderWrites") ?? (() => {});
 try {
@@ -931,40 +901,32 @@ try {
     const reportItems: BatchReportItem[] = [];
 
     try {
-      if (snapshots.length > 0) {
-        processingNotice.throwIfCancelled();
-        await this.recordOperation(`Folder: ${transformations[transformationId]?.name || transformationId}`, snapshots);
-      }
-
+      const snapshots: OperationHistorySnapshot[] = [];
       for (const pendingWrite of pendingWrites) {
         try {
           processingNotice.throwIfCancelled();
-          const currentContents = await this.app.vault.read(pendingWrite.file);
-          if (currentContents !== pendingWrite.oldText) {
-            failedCount++;
-            reportItems.push({ path: pendingWrite.file.path, status: "failed", message: "changed since preview" });
-            continue;
-          }
           await this.app.vault.process(pendingWrite.file, (current) => {
             if (current !== pendingWrite.oldText) throw new Error("The note changed while applying. Run the transformation again.");
             return pendingWrite.newText;
           });
-          reportItems.push({ path: pendingWrite.file.path, status: "changed", message: transformations[transformationId]?.name || transformationId });
+          snapshots.push({ path: pendingWrite.file.path, content: pendingWrite.oldText });
+          reportItems.push({ path: pendingWrite.file.path, status: "changed", message: name });
         } catch (error) {
 diagnostics.failure("main.caught_40", error);
           failedCount++;
           reportItems.push({ path: pendingWrite.file.path, status: "failed", message: String(error) });
-          this.logger.error("applyPendingFolderWrites", `Failed '${transformationId}' on ${pendingWrite.file.path}`, error);
+          this.logger.error("applyPendingFolderWrites", `Failed '${name}' on ${pendingWrite.file.path}`, error);
         }
       }
 
-      await this.createBatchReport(`Folder ${transformations[transformationId]?.name || transformationId}`, folder.path, reportItems);
+      await this.recordOperation(`${kind}: ${name}`, snapshots);
+      await this.createBatchReport(`${kind} ${name}`, folder.path, reportItems);
       const failureText = failedCount > 0 ? ` ${failedCount} file(s) failed.` : "";
-      new Notice(`Applied to ${processedCount} Markdown file(s) in ${folder.name}.${failureText}`);
+      new Notice(`Changed ${snapshots.length} Markdown file(s) in ${folder.name}.${failureText}`);
 
     } catch (error) {
 diagnostics.failure("main.caught_41", error);
-      this.logger.error("applyPendingFolderWrites", `Cancelled or failed applying '${transformationId}' in ${folder.path}`, error);
+      this.logger.error("applyPendingFolderWrites", `Cancelled or failed applying '${name}' in ${folder.path}`, error);
       new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying changes in ${folder.name}.`);
     } finally {
       processingNotice.close();
@@ -1027,8 +989,7 @@ try {
     }
     const processingNotice = this.startProcessingNotice(`Processing AI classification for ${files.length} file(s)`);
     const folderChoices = parseFolderList(this.settings.folderClassificationFolders);
-    const movePlan: Array<{ file: TFile; newPath: string }> = [];
-    const snapshots: OperationHistorySnapshot[] = [];
+    const movePlan: Array<{ file: TFile; newPath: string; content: string }> = [];
     const reservedPaths = new Set<string>();
     let failedCount = 0;
 
@@ -1053,8 +1014,7 @@ try {
 
           if (newPath !== file.path) {
             reservedPaths.add(newPath);
-            movePlan.push({ file, newPath });
-            snapshots.push({ path: file.path, currentPath: newPath, content: fileContents });
+            movePlan.push({ file, newPath, content: fileContents });
           }
         } catch (error) {
 diagnostics.failure("main.caught_42", error);
@@ -1076,12 +1036,12 @@ diagnostics.failure("main.caught_43", error);
       return;
     }
 
-    if (!this.settings.reviewBeforeApply) { await this.applyMovePlan("AI Folder Classification", sourcePath, movePlan, snapshots, failedCount); return; }
+    if (!this.settings.reviewBeforeApply) { await this.applyMovePlan("AI Folder Classification", sourcePath, movePlan, failedCount); return; }
     new BatchPreviewModal(this.app, "AI Classify Folder", movePlan.map((item) => ({
       label: item.file.path,
       detail: `Proposed path: ${item.newPath}`,
     })), () => {
-      void diagnostics.guard("main.background_44", () => (this.applyMovePlan("AI Folder Classification", sourcePath, movePlan, snapshots, failedCount)));
+      void diagnostics.guard("main.background_44", () => (this.applyMovePlan("AI Folder Classification", sourcePath, movePlan, failedCount)));
     }).open();
 
 } catch (diagnosticError20) { diagnostics?.failure?.("main.classifyFiles", diagnosticError20); throw diagnosticError20; } finally { diagnosticEnd20(); }
@@ -1090,8 +1050,7 @@ diagnostics.failure("main.caught_43", error);
   private async applyMovePlan(
     label: string,
     sourcePath: string,
-    movePlan: Array<{ file: TFile; newPath: string }>,
-    snapshots: OperationHistorySnapshot[],
+    movePlan: Array<{ file: TFile; newPath: string; content: string }>,
     failedCount: number,
   ): Promise<void> {
 const diagnosticEnd21 = diagnostics?.start?.("main.applyMovePlan") ?? (() => {});
@@ -1099,20 +1058,16 @@ try {
 
     const processingNotice = this.startProcessingNotice(`Applying ${movePlan.length} move(s)`);
     const reportItems: BatchReportItem[] = [];
-    let movedCount = 0;
+    const snapshots: OperationHistorySnapshot[] = [];
 
     try {
-      if (snapshots.length > 0) {
-        await this.recordOperation(label, snapshots);
-      }
-
       for (const item of movePlan) {
         try {
           processingNotice.throwIfCancelled();
           const oldPath = item.file.path;
           await this.ensureFolderPath(item.newPath.split("/").slice(0, -1).join("/"));
           await this.app.vault.rename(item.file, item.newPath);
-          movedCount++;
+          snapshots.push({ path: oldPath, currentPath: item.newPath, content: item.content });
           reportItems.push({ path: oldPath, newPath: item.newPath, status: "moved" });
         } catch (error) {
 diagnostics.failure("main.caught_45", error);
@@ -1122,8 +1077,9 @@ diagnostics.failure("main.caught_45", error);
         }
       }
 
+      await this.recordOperation(label, snapshots);
       await this.createBatchReport(label, sourcePath, reportItems);
-      new Notice(`Moved ${movedCount} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
+      new Notice(`Moved ${snapshots.length} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
     } catch (error) {
 diagnostics.failure("main.caught_46", error);
       this.logger.error("applyMovePlan", `Cancelled or failed move plan for ${sourcePath}`, error);
@@ -1306,7 +1262,6 @@ try {
     let processingNotice: ProcessingNotice | null = null;
     const files = selected ?? this.getMarkdownFilesInFolder(folder);
     const pendingWrites: Array<{ file: TFile; oldText: string; newText: string }> = [];
-    const snapshots: OperationHistorySnapshot[] = [];
     let failedCount = 0;
 
     try {
@@ -1325,7 +1280,6 @@ try {
           this.showAiUsage(`Prompt ${preset.name} on ${file.name}`, usage);
 
           if (newText !== fileContents) {
-            snapshots.push({ path: file.path, content: fileContents });
             pendingWrites.push({ file, oldText: fileContents, newText });
           }
         } catch (error) {
@@ -1348,61 +1302,15 @@ diagnostics.failure("main.caught_53", error);
       return;
     }
 
-    if (!this.settings.reviewBeforeApply) { await this.applyCustomPromptFolderWrites(folder.path, preset, pendingWrites, snapshots, failedCount); return; }
+    if (!this.settings.reviewBeforeApply) { await this.applyPendingFolderWrites(folder, preset.name, pendingWrites, failedCount, "Prompt"); return; }
     new BatchPreviewModal(this.app, `Review prompt: ${preset.name}`, pendingWrites.map((item) => ({
       label: item.file.path,
       detail: summarizeTextChange(item.oldText, item.newText),
     })), () => {
-      void diagnostics.guard("main.background_54", () => (this.applyCustomPromptFolderWrites(folder.path, preset, pendingWrites, snapshots, failedCount)));
+      void diagnostics.guard("main.background_54", () => (this.applyPendingFolderWrites(folder, preset.name, pendingWrites, failedCount, "Prompt")));
     }).open();
 
 } catch (diagnosticError27) { diagnostics?.failure?.("main.applyCustomPromptToFolder", diagnosticError27); throw diagnosticError27; } finally { diagnosticEnd27(); }
-}
-
-  private async applyCustomPromptFolderWrites(
-    sourcePath: string,
-    preset: CustomPromptPreset,
-    pendingWrites: Array<{ file: TFile; oldText: string; newText: string }>,
-    snapshots: OperationHistorySnapshot[],
-    failedCount: number,
-  ): Promise<void> {
-const diagnosticEnd28 = diagnostics?.start?.("main.applyCustomPromptFolderWrites") ?? (() => {});
-try {
-
-    const processingNotice = this.startProcessingNotice(`Applying prompt changes to ${pendingWrites.length} file(s)`);
-    const reportItems: BatchReportItem[] = [];
-
-    try {
-      await this.recordOperation(`Prompt: ${preset.name}`, snapshots);
-      for (const pendingWrite of pendingWrites) {
-        try {
-          processingNotice.throwIfCancelled();
-          const currentContents = await this.app.vault.read(pendingWrite.file);
-          if (currentContents !== pendingWrite.oldText) {
-            failedCount++;
-            reportItems.push({ path: pendingWrite.file.path, status: "failed", message: "changed since preview" });
-            continue;
-          }
-          await this.app.vault.modify(pendingWrite.file, pendingWrite.newText);
-          reportItems.push({ path: pendingWrite.file.path, status: "changed", message: preset.name });
-        } catch (error) {
-diagnostics.failure("main.caught_55", error);
-          failedCount++;
-          reportItems.push({ path: pendingWrite.file.path, status: "failed", message: String(error) });
-        }
-      }
-
-      await this.createBatchReport(`Prompt ${preset.name}`, sourcePath, reportItems);
-      new Notice(`Applied prompt preset to ${pendingWrites.length} file(s).${failedCount > 0 ? ` ${failedCount} file(s) failed.` : ""}`);
-    } catch (error) {
-diagnostics.failure("main.caught_56", error);
-      this.logger.error("applyCustomPromptFolderWrites", `Cancelled or failed applying prompt '${preset.name}' in ${sourcePath}`, error);
-      new Notice(processingNotice.wasCancelled() ? "Operation cancelled." : `Error applying prompt changes.`);
-    } finally {
-      processingNotice.close();
-    }
-
-} catch (diagnosticError28) { diagnostics?.failure?.("main.applyCustomPromptFolderWrites", diagnosticError28); throw diagnosticError28; } finally { diagnosticEnd28(); }
 }
 
   /** Restore the most recent saved operation snapshot after explicit confirmation. */
@@ -1426,11 +1334,9 @@ try {
         try {
           processingNotice.throwIfCancelled();
           if (snapshot.editorOnly) {
-            const editor = this.app.workspace.activeEditor?.editor;
-            if (!editor) {
-              throw new Error("Open the original note in the editor to restore this change.");
-            }
-            editor.setValue(snapshot.content);
+            const path = await this.getAvailablePathInFolder("", "Recovered Torbert edit.md");
+            await this.app.vault.create(path, snapshot.content);
+            new Notice(`Recovered an older editor snapshot in ${path}.`);
             restoredCount++;
             continue;
           }
@@ -1476,29 +1382,6 @@ diagnostics.failure("main.caught_57", error);
     new Notice(`Restore incomplete: ${restoredCount} item(s) restored and ${failedCount} failed. The operation remains available to retry.`);
 
 } catch (diagnosticError29) { diagnostics?.failure?.("main.restoreLastOperation", diagnosticError29); throw diagnosticError29; } finally { diagnosticEnd29(); }
-}
-
-  private async recordEditorSnapshot(label: string, editor: Editor): Promise<void> {
-const diagnosticEnd30 = diagnostics?.start?.("main.recordEditorSnapshot") ?? (() => {});
-try {
-
-    const activeFile = this.app.workspace.getActiveFile();
-
-    if (activeFile) {
-      await this.recordOperation(label, [{
-        path: activeFile.path,
-        content: editor.getValue(),
-      }]);
-      return;
-    }
-
-    await this.recordOperation(label, [{
-      path: "__active_editor__",
-      content: editor.getValue(),
-      editorOnly: true,
-    }]);
-
-} catch (diagnosticError30) { diagnostics?.failure?.("main.recordEditorSnapshot", diagnosticError30); throw diagnosticError30; } finally { diagnosticEnd30(); }
 }
 
   private async recordOperation(label: string, snapshots: OperationHistorySnapshot[]): Promise<void> {
