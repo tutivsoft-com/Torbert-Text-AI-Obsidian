@@ -25,3 +25,7 @@ Uncertain older billing records are retained and are never replayed as new v2 ch
 Stop queued edits when the note or selection changes. Restore the original note and only changes the batch applied. Count successful writes in the completion notice.
 
 Requires Obsidian 1.5.0 or later. [GitHub releases](https://github.com/tutivsoft-com/Torbert-Text-AI-Obsidian/releases).
+
+## Support
+
+Use the plugin's Help or Open documentation command and the support links in its manifest. For a billing problem, retain the original purchase or operation identity and use the account portal. Do not share passwords or session tokens.
