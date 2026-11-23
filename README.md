@@ -4,7 +4,9 @@ Apply the existing text transformations and AI writing commands to selected text
 
 ## Use
 
-Install or update the plugin through Obsidian Community plugins, enable it, and open its settings. Use the existing plugin commands for the selected note, text or files. Existing preferences and local recovery records are retained.
+Install or update Torbert Text AI through Obsidian Community plugins and enable it. In the command palette, search for Torbert Text AI and choose a transformation. Most editor commands use the selected text or the whole note if nothing is selected. For Markdown files, use the Torbert Text AI menu in the file explorer.
+
+Commands apply changes immediately. Use **Restore last change** to recover the latest recorded edit. Open **Show AI request queue** to see the active request or clear waiting requests.
 
 ## Account and billing
 
@@ -16,7 +18,9 @@ New purchases use Paddle and USD. Existing historical purchases retain their ori
 
 ## Privacy and recovery
 
-Account requests send authentication and billing information to Constance. Passwords are not saved. Session credentials and recovery state are kept in local plugin settings. Billing requests do not contain note or image contents. Requested AI actions send the selected input directly to the existing AI service. Basic app usage events use the existing analytics service without note contents. The local diagnostic buffer is separate from automatic startup and plugin error reports sent to Datadog. Reports include the plugin version, platform, error details and recent action names. Credentials are redacted; details from a failed operation can include file paths or content.
+Account requests send authentication and billing information to Constance. Passwords are not saved. Session credentials and recovery state are kept in local plugin settings. Billing requests do not contain note or image contents. Local transformations stay in your vault. When you run an AI action, Torbert sends the input directly to OpenRouter. Basic usage events go to Matomo without note contents.
+
+The plugin sends startup and error reports to Datadog separately from the local diagnostic buffer. Reports include the plugin version and platform. Error reports also include recent action names and error details, which can include file paths or content. Recognized credential patterns in those details are redacted.
 
 Uncertain older billing records are retained and are never replayed as new v2 charges. Connect the original account and contact support if an earlier operation needs recovery.
 
@@ -28,4 +32,4 @@ Requires Obsidian 1.5.0 or later. [GitHub releases](https://github.com/tutivsoft
 
 ## Support
 
-Use the plugin's Help or Open documentation command and the support links in its manifest. For a billing problem, retain the original purchase or operation identity and use the account portal. Do not share passwords or session tokens.
+Use **Open Help** in plugin settings or **Open documentation** in the command palette. For a billing problem, keep the original purchase or operation ID and open the [Constance account page](https://app.tutivsoft.com). Do not share passwords or session tokens.
