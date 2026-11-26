@@ -1,6 +1,6 @@
 # Torbert Text AI 5.8.86 desktop UI verification
 
-Tested on 24 November 2026 in Windows Obsidian 1.15.1. The plugin ran in a separate profile with a synthetic Markdown vault. The runner clicked the rendered Obsidian controls and checked editor text, saved files, plugin preferences, action notices, and responses to synthetic account and checkout requests.
+Tested on 24 November 2026 in Windows Obsidian 1.15.1, with a small provider follow-up on 26 November. The plugin ran in a separate profile with a synthetic Markdown vault. The runner clicked the rendered Obsidian controls and checked editor text, saved files, plugin preferences, action notices, and responses to synthetic account and checkout requests.
 
 ## Release identity
 
@@ -24,12 +24,17 @@ The installed files, GitHub downloads, public primary blobs, and immutable `5.8.
 | Account | Invalid-account registration, pending verification, connection, password omission from saved data, and successful reset and verification request notices passed with synthetic responses. |
 | Credits | Unavailable catalog hid purchase buttons. Signed-out pricing disabled purchase, and unavailable offers stayed disabled. In the signed-in fixture, payment-status refresh, cancellation, new purchase, canonical fulfillment, and balance refresh passed. |
 | AI queue | The Settings button opened the empty queue and Close dismissed it. |
+| AI summary | A single synthetic provider request used a 12-character note, a 60-character user message and an 18-character reply. The editor added the summary and restored the original note. After sign-out, the same command preserved the note and issued no provider request. |
 
 The 28 local palette results covered keyword highlights, removing highlights, title/upper/lower/sentence case, both sort orders, checkboxes, duplicate/blank/similar lines, extra newlines, joining lines, trim, increasing/decreasing headings, bullets, numbering, Markdown cleanup, extracting actions and URLs, removing an AI summary prefix, slugs, straight quotes, and URL encoding and decoding.
 
-## Confirmed issue
+## Confirmed issues
 
 On 5.8.86, open Settings > Account and billing and click **Send email** under **Forgot password?**. A controlled HTTP 503 caused one request and produced no inline error or notice. The successful fixture showed the queued-email notice. This leaves the user without feedback when recovery fails. The finding was handed to the Torbert source maintainer for correction before a future public release.
+
+The **OpenRouter API key** field in Advanced settings is an unmasked text input. Entered synthetic characters remained visible in the rendered control. No real key was entered or captured. This finding was also handed to the source maintainer.
+
+While signed out, **AI Note Summary** shows “The transformation could not be applied” without identifying that the user needs to connect an account. The note stayed intact and the provider request count stayed fixed.
 
 Live account verification, payments, production OpenRouter, and mobile remain outside this verified pass. The nested editor menu, duplicate-note result, custom prompt execution, and active queue behavior require follow-up. This commit adds audit evidence only.
 
